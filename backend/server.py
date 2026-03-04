@@ -1,5 +1,6 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,9 +13,14 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import jwt
 from passlib.hash import bcrypt
+import shutil
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+# Create uploads directory
+UPLOAD_DIR = ROOT_DIR / 'uploads'
+UPLOAD_DIR.mkdir(exist_ok=True)
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -37,8 +43,8 @@ api_router = APIRouter(prefix="/api")
 
 class Companion(BaseModel):
     name: str
-    age: Optional[int] = None
-    relation: Optional[str] = None  # parente, filho(a), noivo(a), etc
+    ageGroup: str = "Adulto"  # "Adulto" ou "Criança"
+    relation: str = "Parente"  # "Parente", "Filho(a)", "Parceiro(a)"
 
 class GuestCreate(BaseModel):
     name: str
@@ -267,6 +273,28 @@ async def update_wedding_info(info_input: WeddingInfoUpdate, admin: dict = Depen
     updated_info = await db.wedding_info.find_one({"id": "wedding-info"}, {"_id": 0})
     return WeddingInfo(**updated_info)
 
+# ============ IMAGE UPLOAD ROUTE ============
+
+@api_router.post("/upload-image")
+async def upload_image(file: UploadFile = File(...), admin: dict = Depends(verify_admin_token)):
+    """Upload an image and return the URL"""
+    try:
+        # Generate unique filename
+        file_extension = file.filename.split('.')[-1]
+        unique_filename = f"{uuid.uuid4()}.{file_extension}"
+        file_path = UPLOAD_DIR / unique_filename
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Return URL (will be served by static files)
+        file_url = f"/uploads/{unique_filename}"
+        return {"url": file_url, "filename": unique_filename}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao fazer upload: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 
@@ -277,6 +305,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve uploaded files
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # Configure logging
 logging.basicConfig(

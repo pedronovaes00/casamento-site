@@ -5,6 +5,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
+import ImageUpload from './ImageUpload';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -276,16 +277,10 @@ export const VaquinhasManagement = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                URL do QR Code
-              </label>
-              <input
-                type="url"
+              <ImageUpload
                 value={formData.qrCodeUrl}
-                onChange={(e) => setFormData(prev => ({ ...prev, qrCodeUrl: e.target.value }))}
-                placeholder="https://exemplo.com/qrcode.png"
-                data-testid="vaquinha-qr-input"
-                className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2 focus:outline-none"
+                onChange={(url) => setFormData(prev => ({ ...prev, qrCodeUrl: url }))}
+                label="QR Code PIX"
               />
             </div>
             <div className="flex gap-3 pt-4">

@@ -98,7 +98,7 @@ export const GuestsList = () => {
                     {guest.companions.map((companion, idx) => (
                       <li key={idx} className="text-sm text-slate-600">
                         {companion.name}
-                        {companion.age && ` (${companion.age} anos)`}
+                        {companion.ageGroup && ` (${companion.ageGroup})`}
                         {companion.relation && ` - ${companion.relation}`}
                       </li>
                     ))}

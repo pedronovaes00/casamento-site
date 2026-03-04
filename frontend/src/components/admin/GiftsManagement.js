@@ -5,6 +5,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
+import ImageUpload from './ImageUpload';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -193,16 +194,10 @@ export const GiftsManagement = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                URL da Imagem
-              </label>
-              <input
-                type="url"
+              <ImageUpload
                 value={newGift.imageUrl}
-                onChange={(e) => setNewGift(prev => ({ ...prev, imageUrl: e.target.value }))}
-                placeholder="https://exemplo.com/imagem.jpg"
-                data-testid="new-gift-image-input"
-                className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2 focus:outline-none"
+                onChange={(url) => setNewGift(prev => ({ ...prev, imageUrl: url }))}
+                label="Imagem do Presente"
               />
             </div>
             <div>

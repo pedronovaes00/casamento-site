@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Calendar, MapPin, MessageSquare, QrCode, Save } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import ImageUpload from './ImageUpload';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -166,19 +167,13 @@ export const WeddingSettings = () => {
 
             {/* QR Code URL */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                URL do QR Code PIX
-              </label>
-              <input
-                type="url"
+              <ImageUpload
                 value={formData.qrCodeUrl}
-                onChange={(e) => setFormData(prev => ({ ...prev, qrCodeUrl: e.target.value }))}
-                placeholder="https://exemplo.com/qrcode.png"
-                data-testid="wedding-qr-input"
-                className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-3 focus:outline-none"
+                onChange={(url) => setFormData(prev => ({ ...prev, qrCodeUrl: url }))}
+                label="QR Code PIX"
               />
               <p className="text-xs text-slate-500 mt-2">
-                Dica: Faça upload da imagem do QR Code em um serviço como Imgur ou use o QR Code gerado pelo seu banco
+                Cole (Ctrl+V), arraste ou selecione a imagem do QR Code
               </p>
             </div>
           </div>

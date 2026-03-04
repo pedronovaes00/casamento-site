@@ -17,7 +17,7 @@ export const RSVPForm = ({ onComplete }) => {
     companions: []
   });
   const [companionName, setCompanionName] = useState('');
-  const [companionAge, setCompanionAge] = useState('');
+  const [companionAgeGroup, setCompanionAgeGroup] = useState('Adulto');
   const [companionRelation, setCompanionRelation] = useState('Parente');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -27,12 +27,12 @@ export const RSVPForm = ({ onComplete }) => {
         ...prev,
         companions: [...prev.companions, { 
           name: companionName, 
-          age: companionAge ? parseInt(companionAge) : null,
+          ageGroup: companionAgeGroup,
           relation: companionRelation
         }]
       }));
       setCompanionName('');
-      setCompanionAge('');
+      setCompanionAgeGroup('Adulto');
       setCompanionRelation('Parente');
     }
   };
@@ -64,12 +64,8 @@ export const RSVPForm = ({ onComplete }) => {
   };
 
   return (
-    <div className="min-h-screen bg-wedding-paper py-16 px-6 relative overflow-hidden">
-      {/* Decorative Flowers */}
-      <Flower2 className="absolute top-20 left-10 w-16 h-16 text-wedding-gold/20 rotate-12" />
-      <Flower2 className="absolute top-40 right-20 w-12 h-12 text-wedding-sage/30 -rotate-45" />
-      <Flower2 className="absolute bottom-32 left-1/4 w-10 h-10 text-wedding-goldLight/40 rotate-90" />
-      <Flower2 className="absolute bottom-20 right-1/3 w-14 h-14 text-wedding-roseDust/25 -rotate-12" />
+    <div className="min-h-screen bg-gradient-to-br from-wedding-skyBlue via-wedding-blueLight to-wedding-blue py-16 px-6 relative overflow-hidden">
+      {/* Decorative Flowers - removed small ones, will use large corner flowers instead */}
       
       <div className="max-w-2xl mx-auto relative z-10">
         {/* Progress Indicator */}
@@ -212,7 +208,7 @@ export const RSVPForm = ({ onComplete }) => {
               </p>
 
               <div className="space-y-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <input
                     type="text"
                     value={companionName}
@@ -220,16 +216,17 @@ export const RSVPForm = ({ onComplete }) => {
                     onKeyPress={(e) => e.key === 'Enter' && addCompanion()}
                     placeholder="Nome"
                     data-testid="companion-name-input"
-                    className="md:col-span-2 bg-white/50 border border-wedding-goldLight focus:border-wedding-gold rounded-lg px-4 py-3 font-sans placeholder:text-slate-300 focus:outline-none transition-colors"
-                  />
-                  <input
-                    type="number"
-                    value={companionAge}
-                    onChange={(e) => setCompanionAge(e.target.value)}
-                    placeholder="Idade"
-                    data-testid="companion-age-input"
                     className="bg-white/50 border border-wedding-goldLight focus:border-wedding-gold rounded-lg px-4 py-3 font-sans placeholder:text-slate-300 focus:outline-none transition-colors"
                   />
+                  <select
+                    value={companionAgeGroup}
+                    onChange={(e) => setCompanionAgeGroup(e.target.value)}
+                    data-testid="companion-age-group-select"
+                    className="bg-white/50 border border-wedding-goldLight focus:border-wedding-gold rounded-lg px-4 py-3 font-sans focus:outline-none transition-colors cursor-pointer"
+                  >
+                    <option value="Adulto">Adulto</option>
+                    <option value="Criança">Criança</option>
+                  </select>
                   <select
                     value={companionRelation}
                     onChange={(e) => setCompanionRelation(e.target.value)}
@@ -238,8 +235,7 @@ export const RSVPForm = ({ onComplete }) => {
                   >
                     <option value="Parente">Parente</option>
                     <option value="Filho(a)">Filho(a)</option>
-                    <option value="Noivo(a)">Noivo(a)</option>
-                    <option value="Amigo(a)">Amigo(a)</option>
+                    <option value="Parceiro(a)">Parceiro(a)</option>
                   </select>
                 </div>
                 <button
@@ -263,7 +259,7 @@ export const RSVPForm = ({ onComplete }) => {
                     >
                       <span className="font-sans text-slate-700">
                         {companion.name}
-                        {companion.age && ` (${companion.age} anos)`}
+                        {companion.ageGroup && ` (${companion.ageGroup})`}
                         {companion.relation && ` - ${companion.relation}`}
                       </span>
                       <button

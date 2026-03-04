@@ -24,7 +24,7 @@ export const InvitationLanding = ({ guest, onContinue }) => {
   const firstName = guest.name.split(' ')[0];
 
   return (
-    <div className="min-h-screen bg-wedding-paper relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-wedding-skyBlue via-wedding-blueLight to-wedding-blue relative overflow-hidden">
       {/* Decorative Flowers - Minimalistas */}
       <Flower2 className="absolute top-10 left-5 w-20 h-20 text-wedding-gold/15 rotate-12 animate-pulse" />
       <Flower2 className="absolute top-32 right-10 w-16 h-16 text-wedding-sage/20 -rotate-45" />
