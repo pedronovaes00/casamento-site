@@ -1,11 +1,13 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import mimetypes
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
@@ -21,6 +23,13 @@ load_dotenv(ROOT_DIR / '.env')
 # Create uploads directory
 UPLOAD_DIR = ROOT_DIR / 'uploads'
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+# Initialize mimetypes
+mimetypes.init()
+mimetypes.add_type('image/webp', '.webp')
+mimetypes.add_type('image/png', '.png')
+mimetypes.add_type('image/jpeg', '.jpg')
+mimetypes.add_type('image/jpeg', '.jpeg')
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -38,6 +47,21 @@ app = FastAPI()
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
+
+# Serve uploaded images with proper MIME types
+@app.get("/uploads/{filename}")
+async def serve_upload(filename: str):
+    """Serve uploaded files with correct MIME type"""
+    file_path = UPLOAD_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Get MIME type
+    mime_type, _ = mimetypes.guess_type(str(file_path))
+    if mime_type is None:
+        mime_type = 'application/octet-stream'
+    
+    return FileResponse(file_path, media_type=mime_type)
 
 # ============ MODELS ============
 
@@ -304,9 +328,6 @@ async def upload_image(file: UploadFile = File(...), admin: dict = Depends(verif
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao fazer upload: {str(e)}")
-
-# Serve uploaded files BEFORE including router
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # Include the router in the main app
 app.include_router(api_router)

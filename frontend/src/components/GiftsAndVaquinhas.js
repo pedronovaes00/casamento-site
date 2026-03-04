@@ -61,10 +61,10 @@ export const GiftsAndVaquinhas = ({ guest }) => {
           className="text-center mb-12"
         >
           <Heart className="w-12 h-12 text-wedding-roseDust fill-wedding-roseDust mx-auto mb-4" />
-          <h1 className="font-serif text-4xl md:text-5xl text-wedding-blue mb-4">
+          <h1 className="font-serif text-4xl md:text-5xl text-slate-800 mb-4 drop-shadow-sm">
             Obrigado por confirmar, {guest.name.split(' ')[0]}!
           </h1>
-          <p className="font-sans text-lg text-slate-600 max-w-2xl mx-auto">
+          <p className="font-sans text-lg text-slate-700 max-w-2xl mx-auto">
             Se desejar, você pode nos presentear com um dos itens abaixo ou contribuir com nossas vaquinhas
           </p>
         </motion.div>

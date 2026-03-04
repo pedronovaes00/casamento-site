@@ -111,7 +111,7 @@ export const RSVPForm = ({ onComplete }) => {
               <Flower2 className="absolute -top-3 -right-3 w-8 h-8 text-wedding-goldLight" />
               <Flower2 className="absolute -bottom-3 -left-3 w-6 h-6 text-wedding-sage/60" />
               
-              <h2 className="font-serif text-3xl md:text-4xl text-wedding-blue mb-8 text-center">
+              <h2 className="font-serif text-3xl md:text-4xl text-slate-800 mb-8 text-center">
                 Confirme sua presença
               </h2>
 
@@ -200,7 +200,7 @@ export const RSVPForm = ({ onComplete }) => {
               <Flower2 className="absolute -top-3 -right-3 w-8 h-8 text-wedding-roseDust" />
               <Flower2 className="absolute -bottom-3 -left-3 w-6 h-6 text-wedding-goldLight/60" />
               
-              <h2 className="font-serif text-3xl md:text-4xl text-wedding-blue mb-4 text-center">
+              <h2 className="font-serif text-3xl md:text-4xl text-slate-800 mb-4 text-center">
                 Acompanhantes
               </h2>
               <p className="text-center text-slate-600 mb-8">

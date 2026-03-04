@@ -65,13 +65,13 @@ export const InvitationLanding = ({ guest, onContinue }) => {
             <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-wedding-gold animate-pulse" />
           </motion.div>
           
-          <h1 className="font-script text-5xl md:text-7xl text-wedding-blue mb-6">
+          <h1 className="font-script text-5xl md:text-7xl text-slate-800 mb-6 drop-shadow-md">
             Você está convidado!
           </h1>
           
           <div className="w-24 h-0.5 bg-wedding-gold mx-auto mb-6"></div>
           
-          <p className="font-serif text-2xl md:text-3xl text-wedding-blueDark mb-4">
+          <p className="font-serif text-2xl md:text-3xl text-slate-700 mb-4 font-semibold">
             {firstName}, sua presença é muito importante!
           </p>
           
