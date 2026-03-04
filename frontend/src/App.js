@@ -1,40 +1,61 @@
-import { useEffect } from "react";
-import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
+import './App.css';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+// Components
+import PaperOverlay from './components/PaperOverlay';
+import InvitationLanding from './components/InvitationLanding';
+import RSVPForm from './components/RSVPForm';
+import GiftsAndVaquinhas from './components/GiftsAndVaquinhas';
+import AdminLogin from './components/admin/AdminLogin';
+import AdminDashboard from './components/admin/AdminDashboard';
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
+// Public Flow Component
+const PublicFlow = () => {
+  const [currentStep, setCurrentStep] = useState('invitation');
+  const [confirmedGuest, setConfirmedGuest] = useState(null);
+
+  const handleContinueToRSVP = () => {
+    setCurrentStep('rsvp');
   };
 
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
+  const handleRSVPComplete = (guest) => {
+    setConfirmedGuest(guest);
+    setCurrentStep('gifts');
+  };
 
   return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
+    <>
+      <PaperOverlay />
+      <div className="relative z-10">
+        {currentStep === 'invitation' && (
+          <InvitationLanding onContinueToRSVP={handleContinueToRSVP} />
+        )}
+        {currentStep === 'rsvp' && (
+          <RSVPForm onComplete={handleRSVPComplete} />
+        )}
+        {currentStep === 'gifts' && confirmedGuest && (
+          <GiftsAndVaquinhas guest={confirmedGuest} />
+        )}
+      </div>
+    </>
   );
+};
+
+// Admin Flow Component
+const AdminFlow = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const handleLoginSuccess = (token) => {
+    setIsAuthenticated(true);
+  };
+
+  if (!isAuthenticated && !localStorage.getItem('adminToken')) {
+    return <AdminLogin onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  return <AdminDashboard />;
 };
 
 function App() {
@@ -42,11 +63,12 @@ function App() {
     <div className="App">
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
+          <Route path="/" element={<PublicFlow />} />
+          <Route path="/admin" element={<AdminFlow />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      <Toaster position="top-center" richColors />
     </div>
   );
 }
