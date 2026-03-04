@@ -49,7 +49,7 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 # Serve uploaded images with proper MIME types
-@app.get("/uploads/{filename}")
+@api_router.get("/uploads/{filename}")
 async def serve_upload(filename: str):
     """Serve uploaded files with correct MIME type"""
     file_path = UPLOAD_DIR / filename
@@ -322,9 +322,8 @@ async def upload_image(file: UploadFile = File(...), admin: dict = Depends(verif
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        # Return URL (will be served by static files)
-        file_url = f"/uploads/{unique_filename}"
-        return {"url": file_url, "filename": unique_filename}
+        # Return filename only (frontend will build full URL)
+        return {"filename": unique_filename}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao fazer upload: {str(e)}")
