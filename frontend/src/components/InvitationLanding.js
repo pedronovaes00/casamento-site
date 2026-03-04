@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, Calendar, MapPin, ArrowRight } from 'lucide-react';
+import { Heart, Calendar, MapPin, ArrowRight, Flower2, Gift, Sparkles } from 'lucide-react';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-export const InvitationLanding = ({ onContinueToRSVP }) => {
+export const InvitationLanding = ({ guest, onContinue }) => {
   const [weddingInfo, setWeddingInfo] = useState(null);
 
   useEffect(() => {
@@ -21,38 +21,34 @@ export const InvitationLanding = ({ onContinueToRSVP }) => {
     fetchWeddingInfo();
   }, []);
 
+  const firstName = guest.name.split(' ')[0];
+
   return (
     <div className="min-h-screen bg-wedding-paper relative overflow-hidden">
+      {/* Decorative Flowers - Minimalistas */}
+      <Flower2 className="absolute top-10 left-5 w-20 h-20 text-wedding-gold/15 rotate-12 animate-pulse" />
+      <Flower2 className="absolute top-32 right-10 w-16 h-16 text-wedding-sage/20 -rotate-45" />
+      <Flower2 className="absolute top-1/3 left-20 w-12 h-12 text-wedding-roseDust/25 rotate-90" />
+      <Flower2 className="absolute bottom-40 right-1/4 w-14 h-14 text-wedding-goldLight/30 -rotate-12" />
+      <Flower2 className="absolute bottom-20 left-1/3 w-16 h-16 text-wedding-sage/25 rotate-45 animate-pulse" />
+      <Flower2 className="absolute top-1/2 right-10 w-10 h-10 text-wedding-gold/20 -rotate-90" />
+      
       {/* Decorative Abstract Blue */}
       <motion.div
         initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 0.08, scale: 1 }}
+        animate={{ opacity: 0.06, scale: 1 }}
         transition={{ duration: 1.5 }}
         className="absolute top-0 left-0 w-96 h-96 pointer-events-none"
         style={{
           backgroundImage: 'url(https://customer-assets.emergentagent.com/job_casamento-presentes-1/artifacts/hjorioag_Screenshot_35.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'left top',
-          filter: 'blur(2px)'
-        }}
-      />
-
-      {/* Floral Decoration */}
-      <motion.div
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 0.12, x: 0 }}
-        transition={{ duration: 1.5, delay: 0.3 }}
-        className="absolute bottom-0 right-0 w-96 h-96 pointer-events-none"
-        style={{
-          backgroundImage: 'url(https://images.unsplash.com/photo-1762805088436-ffa7b89779a9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTZ8MHwxfHNlYXJjaHwyfHx3YXRlcmNvbG9yJTIwZmxvcmFsJTIwd2VkZGluZyUyMGJvcmRlcnxlbnwwfHx8fDE3NzI2MDc5MzN8MA&ixlib=rb-4.1.0&q=85)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'right bottom',
-          filter: 'blur(2px)'
+          filter: 'blur(3px)'
         }}
       />
 
       <div className="relative z-10 max-w-4xl mx-auto px-6 py-16 md:py-24">
-        {/* Header */}
+        {/* Header with personalized message */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -63,19 +59,24 @@ export const InvitationLanding = ({ onContinueToRSVP }) => {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
-            className="inline-block mb-6"
+            className="inline-block mb-6 relative"
           >
-            <Heart className="w-12 h-12 text-wedding-roseDust fill-wedding-roseDust" />
+            <Heart className="w-16 h-16 text-wedding-roseDust fill-wedding-roseDust" />
+            <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-wedding-gold animate-pulse" />
           </motion.div>
           
-          <h1 className="font-script text-6xl md:text-8xl text-wedding-blue mb-4">
-            Você está convidado
+          <h1 className="font-script text-5xl md:text-7xl text-wedding-blue mb-6">
+            Você está convidado!
           </h1>
           
           <div className="w-24 h-0.5 bg-wedding-gold mx-auto mb-6"></div>
           
-          <p className="font-serif text-xl md:text-2xl text-wedding-blueDark font-light italic">
-            Para celebrar o nosso casamento
+          <p className="font-serif text-2xl md:text-3xl text-wedding-blueDark mb-4">
+            {firstName}, sua presença é muito importante!
+          </p>
+          
+          <p className="font-sans text-lg text-slate-600 max-w-2xl mx-auto">
+            Estamos muito felizes em compartilhar este momento especial com você
           </p>
         </motion.div>
 
@@ -84,8 +85,12 @@ export const InvitationLanding = ({ onContinueToRSVP }) => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl p-8 md:p-12 mb-12"
+          className="bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl p-8 md:p-12 mb-12 relative"
         >
+          {/* Small flower decorations */}
+          <Flower2 className="absolute -top-4 -right-4 w-12 h-12 text-wedding-goldLight" />
+          <Flower2 className="absolute -bottom-4 -left-4 w-10 h-10 text-wedding-sage/60" />
+          
           {weddingInfo?.coupleMessage && (
             <p className="font-serif text-lg text-slate-600 text-center leading-relaxed mb-8 italic">
               "{weddingInfo.coupleMessage}"
@@ -118,21 +123,37 @@ export const InvitationLanding = ({ onContinueToRSVP }) => {
           </div>
         </motion.div>
 
-        {/* CTA Button */}
+        {/* Action Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
-          className="text-center"
+          className="flex flex-col sm:flex-row gap-4 justify-center"
         >
           <button
-            onClick={onContinueToRSVP}
-            data-testid="continue-to-rsvp-button"
-            className="group bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-full px-10 py-4 font-serif text-lg transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 inline-flex items-center gap-3"
+            onClick={onContinue}
+            data-testid="view-gifts-button"
+            className="group bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-full px-10 py-4 font-serif text-lg transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 inline-flex items-center justify-center gap-3"
           >
-            Confirmar Presença
+            <Gift className="w-5 h-5" />
+            Ver Presentes e Vaquinhas
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
+        </motion.div>
+
+        {/* Guest info summary */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+          className="mt-12 text-center"
+        >
+          <p className="text-sm text-slate-500">
+            Confirmado como <span className="font-semibold text-wedding-blue">{guest.guestType}</span>
+            {guest.companions.length > 0 && (
+              <span> com {guest.companions.length} acompanhante{guest.companions.length > 1 ? 's' : ''}</span>
+            )}
+          </p>
         </motion.div>
       </div>
     </div>

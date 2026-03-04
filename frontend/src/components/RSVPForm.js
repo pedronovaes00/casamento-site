@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Trash2, ArrowRight, ArrowLeft, Send } from 'lucide-react';
+import { UserPlus, Trash2, ArrowRight, ArrowLeft, Send, Flower2 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -13,21 +13,27 @@ export const RSVPForm = ({ onComplete }) => {
     name: '',
     email: '',
     phone: '',
-    companions: [],
-    message: ''
+    guestType: 'Amigo(a)',
+    companions: []
   });
   const [companionName, setCompanionName] = useState('');
   const [companionAge, setCompanionAge] = useState('');
+  const [companionRelation, setCompanionRelation] = useState('Parente');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const addCompanion = () => {
     if (companionName.trim()) {
       setFormData(prev => ({
         ...prev,
-        companions: [...prev.companions, { name: companionName, age: companionAge ? parseInt(companionAge) : null }]
+        companions: [...prev.companions, { 
+          name: companionName, 
+          age: companionAge ? parseInt(companionAge) : null,
+          relation: companionRelation
+        }]
       }));
       setCompanionName('');
       setCompanionAge('');
+      setCompanionRelation('Parente');
     }
   };
 
@@ -58,12 +64,18 @@ export const RSVPForm = ({ onComplete }) => {
   };
 
   return (
-    <div className="min-h-screen bg-wedding-paper py-16 px-6">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-wedding-paper py-16 px-6 relative overflow-hidden">
+      {/* Decorative Flowers */}
+      <Flower2 className="absolute top-20 left-10 w-16 h-16 text-wedding-gold/20 rotate-12" />
+      <Flower2 className="absolute top-40 right-20 w-12 h-12 text-wedding-sage/30 -rotate-45" />
+      <Flower2 className="absolute bottom-32 left-1/4 w-10 h-10 text-wedding-goldLight/40 rotate-90" />
+      <Flower2 className="absolute bottom-20 right-1/3 w-14 h-14 text-wedding-roseDust/25 -rotate-12" />
+      
+      <div className="max-w-2xl mx-auto relative z-10">
         {/* Progress Indicator */}
         <div className="mb-12">
           <div className="flex justify-between items-center mb-3">
-            {[1, 2, 3].map((s) => (
+            {[1, 2].map((s) => (
               <div key={s} className="flex items-center flex-1">
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center font-serif font-semibold transition-all duration-300 ${
@@ -73,7 +85,7 @@ export const RSVPForm = ({ onComplete }) => {
                 >
                   {s}
                 </div>
-                {s < 3 && (
+                {s < 2 && (
                   <div className={`flex-1 h-1 mx-2 rounded transition-all duration-300 ${
                     step > s ? 'bg-wedding-blue' : 'bg-wedding-stone'
                   }`} />
@@ -85,7 +97,6 @@ export const RSVPForm = ({ onComplete }) => {
             <p className="font-serif text-sm text-slate-500 uppercase tracking-widest">
               {step === 1 && 'Suas Informações'}
               {step === 2 && 'Acompanhantes'}
-              {step === 3 && 'Mensagem (Opcional)'}
             </p>
           </div>
         </div>
@@ -98,8 +109,12 @@ export const RSVPForm = ({ onComplete }) => {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12"
+              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12 relative"
             >
+              {/* Small flower decorations */}
+              <Flower2 className="absolute -top-3 -right-3 w-8 h-8 text-wedding-goldLight" />
+              <Flower2 className="absolute -bottom-3 -left-3 w-6 h-6 text-wedding-sage/60" />
+              
               <h2 className="font-serif text-3xl md:text-4xl text-wedding-blue mb-8 text-center">
                 Confirme sua presença
               </h2>
@@ -117,6 +132,21 @@ export const RSVPForm = ({ onComplete }) => {
                     data-testid="guest-name-input"
                     className="w-full bg-transparent border-b-2 border-wedding-goldLight focus:border-wedding-gold px-0 py-3 font-serif text-xl placeholder:text-slate-300 focus:outline-none transition-colors"
                   />
+                </div>
+
+                <div>
+                  <label className="block font-serif text-sm uppercase tracking-wider text-slate-500 mb-2">
+                    Você é *
+                  </label>
+                  <select
+                    value={formData.guestType}
+                    onChange={(e) => setFormData(prev => ({ ...prev, guestType: e.target.value }))}
+                    data-testid="guest-type-select"
+                    className="w-full bg-white border-b-2 border-wedding-goldLight focus:border-wedding-gold px-0 py-3 font-serif text-lg focus:outline-none transition-colors cursor-pointer"
+                  >
+                    <option value="Amigo(a)">Amigo(a)</option>
+                    <option value="Parente">Parente</option>
+                  </select>
                 </div>
 
                 <div>
@@ -168,8 +198,12 @@ export const RSVPForm = ({ onComplete }) => {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12"
+              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12 relative"
             >
+              {/* Small flower decorations */}
+              <Flower2 className="absolute -top-3 -right-3 w-8 h-8 text-wedding-roseDust" />
+              <Flower2 className="absolute -bottom-3 -left-3 w-6 h-6 text-wedding-goldLight/60" />
+              
               <h2 className="font-serif text-3xl md:text-4xl text-wedding-blue mb-4 text-center">
                 Acompanhantes
               </h2>
@@ -178,15 +212,15 @@ export const RSVPForm = ({ onComplete }) => {
               </p>
 
               <div className="space-y-4 mb-6">
-                <div className="flex gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <input
                     type="text"
                     value={companionName}
                     onChange={(e) => setCompanionName(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && addCompanion()}
-                    placeholder="Nome do acompanhante"
+                    placeholder="Nome"
                     data-testid="companion-name-input"
-                    className="flex-1 bg-white/50 border border-wedding-goldLight focus:border-wedding-gold rounded-lg px-4 py-3 font-sans placeholder:text-slate-300 focus:outline-none transition-colors"
+                    className="md:col-span-2 bg-white/50 border border-wedding-goldLight focus:border-wedding-gold rounded-lg px-4 py-3 font-sans placeholder:text-slate-300 focus:outline-none transition-colors"
                   />
                   <input
                     type="number"
@@ -194,16 +228,28 @@ export const RSVPForm = ({ onComplete }) => {
                     onChange={(e) => setCompanionAge(e.target.value)}
                     placeholder="Idade"
                     data-testid="companion-age-input"
-                    className="w-24 bg-white/50 border border-wedding-goldLight focus:border-wedding-gold rounded-lg px-4 py-3 font-sans placeholder:text-slate-300 focus:outline-none transition-colors"
+                    className="bg-white/50 border border-wedding-goldLight focus:border-wedding-gold rounded-lg px-4 py-3 font-sans placeholder:text-slate-300 focus:outline-none transition-colors"
                   />
-                  <button
-                    onClick={addCompanion}
-                    data-testid="add-companion-button"
-                    className="bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg px-4 py-3 transition-colors"
+                  <select
+                    value={companionRelation}
+                    onChange={(e) => setCompanionRelation(e.target.value)}
+                    data-testid="companion-relation-select"
+                    className="bg-white/50 border border-wedding-goldLight focus:border-wedding-gold rounded-lg px-4 py-3 font-sans focus:outline-none transition-colors cursor-pointer"
                   >
-                    <UserPlus className="w-5 h-5" />
-                  </button>
+                    <option value="Parente">Parente</option>
+                    <option value="Filho(a)">Filho(a)</option>
+                    <option value="Noivo(a)">Noivo(a)</option>
+                    <option value="Amigo(a)">Amigo(a)</option>
+                  </select>
                 </div>
+                <button
+                  onClick={addCompanion}
+                  data-testid="add-companion-button"
+                  className="w-full bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg px-4 py-3 transition-colors inline-flex items-center justify-center gap-2"
+                >
+                  <UserPlus className="w-5 h-5" />
+                  Adicionar Acompanhante
+                </button>
               </div>
 
               {formData.companions.length > 0 && (
@@ -218,6 +264,7 @@ export const RSVPForm = ({ onComplete }) => {
                       <span className="font-sans text-slate-700">
                         {companion.name}
                         {companion.age && ` (${companion.age} anos)`}
+                        {companion.relation && ` - ${companion.relation}`}
                       </span>
                       <button
                         onClick={() => removeCompanion(index)}
@@ -235,52 +282,6 @@ export const RSVPForm = ({ onComplete }) => {
                 <button
                   onClick={() => setStep(1)}
                   data-testid="rsvp-back-step-2"
-                  className="border border-wedding-gold text-wedding-goldDim hover:bg-wedding-cream rounded-full px-8 py-3 font-serif transition-all inline-flex items-center gap-2"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                  Voltar
-                </button>
-                <button
-                  onClick={() => setStep(3)}
-                  data-testid="rsvp-next-step-2"
-                  className="bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-full px-8 py-3 font-serif transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 inline-flex items-center gap-2"
-                >
-                  Próximo
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Step 3: Message */}
-          {step === 3 && (
-            <motion.div
-              key="step3"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12"
-            >
-              <h2 className="font-serif text-3xl md:text-4xl text-wedding-blue mb-4 text-center">
-                Deixe uma mensagem
-              </h2>
-              <p className="text-center text-slate-600 mb-8">
-                Gostaria de deixar uma mensagem carinhosa para o casal?
-              </p>
-
-              <textarea
-                value={formData.message}
-                onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
-                placeholder="Escreva aqui sua mensagem..."
-                data-testid="guest-message-input"
-                rows={6}
-                className="w-full bg-white/50 border border-wedding-goldLight focus:border-wedding-gold rounded-lg px-4 py-3 font-sans placeholder:text-slate-300 focus:outline-none transition-colors resize-none"
-              />
-
-              <div className="mt-10 flex justify-between">
-                <button
-                  onClick={() => setStep(2)}
-                  data-testid="rsvp-back-step-3"
                   className="border border-wedding-gold text-wedding-goldDim hover:bg-wedding-cream rounded-full px-8 py-3 font-serif transition-all inline-flex items-center gap-2"
                 >
                   <ArrowLeft className="w-5 h-5" />

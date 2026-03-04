@@ -13,15 +13,15 @@ import AdminDashboard from './components/admin/AdminDashboard';
 
 // Public Flow Component
 const PublicFlow = () => {
-  const [currentStep, setCurrentStep] = useState('invitation');
+  const [currentStep, setCurrentStep] = useState('rsvp');
   const [confirmedGuest, setConfirmedGuest] = useState(null);
-
-  const handleContinueToRSVP = () => {
-    setCurrentStep('rsvp');
-  };
 
   const handleRSVPComplete = (guest) => {
     setConfirmedGuest(guest);
+    setCurrentStep('confirmation');
+  };
+
+  const handleContinueToGifts = () => {
     setCurrentStep('gifts');
   };
 
@@ -29,11 +29,11 @@ const PublicFlow = () => {
     <>
       <PaperOverlay />
       <div className="relative z-10">
-        {currentStep === 'invitation' && (
-          <InvitationLanding onContinueToRSVP={handleContinueToRSVP} />
-        )}
         {currentStep === 'rsvp' && (
           <RSVPForm onComplete={handleRSVPComplete} />
+        )}
+        {currentStep === 'confirmation' && confirmedGuest && (
+          <InvitationLanding guest={confirmedGuest} onContinue={handleContinueToGifts} />
         )}
         {currentStep === 'gifts' && confirmedGuest && (
           <GiftsAndVaquinhas guest={confirmedGuest} />

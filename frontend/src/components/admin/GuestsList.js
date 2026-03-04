@@ -68,7 +68,10 @@ export const GuestsList = () => {
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="font-serif text-xl text-wedding-blue mb-2">{guest.name}</h3>
-                  <div className="space-y-1">
+                  <span className="text-xs bg-wedding-blue/10 text-wedding-blue px-2 py-1 rounded-full mb-2 inline-block">
+                    {guest.guestType}
+                  </span>
+                  <div className="space-y-1 mt-2">
                     {guest.email && (
                       <p className="text-sm text-slate-600 flex items-center gap-2">
                         <Mail className="w-4 h-4" />
@@ -96,6 +99,7 @@ export const GuestsList = () => {
                       <li key={idx} className="text-sm text-slate-600">
                         {companion.name}
                         {companion.age && ` (${companion.age} anos)`}
+                        {companion.relation && ` - ${companion.relation}`}
                       </li>
                     ))}
                   </ul>

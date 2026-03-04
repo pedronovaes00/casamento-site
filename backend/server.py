@@ -38,13 +38,14 @@ api_router = APIRouter(prefix="/api")
 class Companion(BaseModel):
     name: str
     age: Optional[int] = None
+    relation: Optional[str] = None  # parente, filho(a), noivo(a), etc
 
 class GuestCreate(BaseModel):
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
+    guestType: str  # "Amigo(a)" ou "Parente"
     companions: List[Companion] = []
-    message: Optional[str] = None
 
 class Guest(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -52,10 +53,11 @@ class Guest(BaseModel):
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
+    guestType: Optional[str] = "Amigo(a)"  # Default para dados antigos
     companions: List[Companion] = []
     confirmed: bool = True
     selectedGifts: List[str] = []
-    message: Optional[str] = None
+    message: Optional[str] = None  # Manter para dados antigos
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class GiftCreate(BaseModel):
