@@ -80,11 +80,29 @@ export const InvitationLanding = ({ guest, onContinue }) => {
           </p>
         </motion.div>
 
+        {/* Action Button - MOVED UP */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          className="flex justify-center mb-8"
+        >
+          <button
+            onClick={onContinue}
+            data-testid="view-gifts-button"
+            className="group bg-wedding-green hover:bg-[#527653] text-white rounded-full px-10 py-4 font-serif text-lg transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 inline-flex items-center justify-center gap-3"
+          >
+            <Gift className="w-5 h-5" />
+            Ver Presentes e Vaquinhas
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </button>
+        </motion.div>
+
         {/* Wedding Details Card */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
           className="bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl p-8 md:p-12 mb-12 relative"
         >
           {/* Small flower decorations */}
@@ -121,24 +139,6 @@ export const InvitationLanding = ({ guest, onContinue }) => {
               </div>
             )}
           </div>
-        </motion.div>
-
-        {/* Action Buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
-          className="flex flex-col sm:flex-row gap-4 justify-center"
-        >
-          <button
-            onClick={onContinue}
-            data-testid="view-gifts-button"
-            className="group bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-full px-10 py-4 font-serif text-lg transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 inline-flex items-center justify-center gap-3"
-          >
-            <Gift className="w-5 h-5" />
-            Ver Presentes e Vaquinhas
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </button>
         </motion.div>
 
         {/* Guest info summary */}

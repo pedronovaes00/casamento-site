@@ -16,6 +16,7 @@ module.exports = {
           sage: '#8FAA8E',
           sageLight: '#C8D9C7',
           green: '#6B8E6C',
+          greenDark: '#527653',
           roseDust: '#F0E5E0',
           paper: '#FDFCF8',
           cream: '#F7F5F0',
