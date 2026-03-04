@@ -210,6 +210,16 @@ async def claim_gift(gift_id: str, guest_id: str, guest_name: str):
     
     return {"message": "Presente reservado com sucesso"}
 
+@api_router.put("/gifts/{gift_id}")
+async def update_gift(gift_id: str, gift_input: GiftCreate, admin: dict = Depends(verify_admin_token)):
+    result = await db.gifts.update_one(
+        {"id": gift_id},
+        {"$set": gift_input.model_dump()}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Presente não encontrado")
+    return {"message": "Presente atualizado com sucesso"}
+
 @api_router.delete("/gifts/{gift_id}")
 async def delete_gift(gift_id: str, admin: dict = Depends(verify_admin_token)):
     result = await db.gifts.delete_one({"id": gift_id})
@@ -295,6 +305,9 @@ async def upload_image(file: UploadFile = File(...), admin: dict = Depends(verif
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao fazer upload: {str(e)}")
 
+# Serve uploaded files BEFORE including router
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
 # Include the router in the main app
 app.include_router(api_router)
 
@@ -305,9 +318,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Serve uploaded files
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # Configure logging
 logging.basicConfig(

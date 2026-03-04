@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Gift, Plus, Trash2, CheckCircle } from 'lucide-react';
+import { Gift, Plus, Trash2, CheckCircle, Edit2 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -14,6 +14,7 @@ export const GiftsManagement = () => {
   const [gifts, setGifts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingGift, setEditingGift] = useState(null);
   const [newGift, setNewGift] = useState({
     name: '',
     description: '',
@@ -45,17 +46,40 @@ export const GiftsManagement = () => {
 
     try {
       const token = localStorage.getItem('adminToken');
-      await axios.post(`${API}/gifts`, newGift, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      toast.success('Presente adicionado com sucesso!');
+      
+      if (editingGift) {
+        // Update existing gift
+        await axios.put(`${API}/gifts/${editingGift.id}`, newGift, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success('Presente atualizado com sucesso!');
+      } else {
+        // Create new gift
+        await axios.post(`${API}/gifts`, newGift, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success('Presente adicionado com sucesso!');
+      }
+      
       setShowAddDialog(false);
+      setEditingGift(null);
       setNewGift({ name: '', description: '', imageUrl: '', price: '' });
       fetchGifts();
     } catch (error) {
-      console.error('Erro ao adicionar presente:', error);
-      toast.error('Erro ao adicionar presente');
+      console.error('Erro ao salvar presente:', error);
+      toast.error('Erro ao salvar presente');
     }
+  };
+
+  const handleEditGift = (gift) => {
+    setEditingGift(gift);
+    setNewGift({
+      name: gift.name,
+      description: gift.description || '',
+      imageUrl: gift.imageUrl || '',
+      price: gift.price || ''
+    });
+    setShowAddDialog(true);
   };
 
   const handleDeleteGift = async (giftId) => {
@@ -144,26 +168,42 @@ export const GiftsManagement = () => {
                     Escolhido por: {gift.takenByName}
                   </p>
                 )}
-                <button
-                  onClick={() => handleDeleteGift(gift.id)}
-                  data-testid={`delete-gift-button-${gift.id}`}
-                  className="w-full bg-red-50 text-red-600 hover:bg-red-100 rounded-lg py-2 transition-all inline-flex items-center justify-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Deletar
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEditGift(gift)}
+                    data-testid={`edit-gift-button-${gift.id}`}
+                    className="flex-1 bg-wedding-blue/10 text-wedding-blue hover:bg-wedding-blue/20 rounded-lg py-2 transition-all inline-flex items-center justify-center gap-2"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleDeleteGift(gift.id)}
+                    data-testid={`delete-gift-button-${gift.id}`}
+                    className="flex-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg py-2 transition-all inline-flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Deletar
+                  </button>
+                </div>
               </div>
             </motion.div>
           ))}
         </div>
       )}
 
-      {/* Add Gift Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      {/* Add/Edit Gift Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={(open) => {
+        setShowAddDialog(open);
+        if (!open) {
+          setEditingGift(null);
+          setNewGift({ name: '', description: '', imageUrl: '', price: '' });
+        }
+      }}>
         <DialogContent className="bg-white">
           <DialogHeader>
             <DialogTitle className="font-serif text-2xl text-wedding-blue">
-              Adicionar Presente
+              {editingGift ? 'Editar Presente' : 'Adicionar Presente'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
@@ -227,7 +267,7 @@ export const GiftsManagement = () => {
                 className="flex-1 bg-wedding-blue hover:bg-wedding-blueDark"
                 data-testid="confirm-add-gift-button"
               >
-                Adicionar
+                {editingGift ? 'Salvar' : 'Adicionar'}
               </Button>
             </div>
           </div>
