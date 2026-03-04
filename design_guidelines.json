@@ -1,0 +1,155 @@
+{
+  "project_name": "Wedding Invitation & Management App",
+  "design_philosophy": {
+    "persona": "E1: The Anti-AI Designer",
+    "theme": "Ethereal Romance meets Modern Utility",
+    "core_principles": [
+      "Paper-like Tactility: The digital interface should feel like high-quality cardstock.",
+      "Emotional Typography: Fonts are the primary visual element.",
+      "Functional Elegance: Admin panels should be beautiful but density-optimized.",
+      "Fusion: Classic Wedding Stationery x Modern Crowdfunding Platform"
+    ]
+  },
+  "typography": {
+    "font_family": {
+      "heading": "Cormorant Garamond, serif",
+      "body": "Lato, sans-serif",
+      "accent": "Great Vibes, cursive",
+      "admin_mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "hero": "text-5xl md:text-7xl lg:text-8xl tracking-tight leading-none",
+      "h1": "text-4xl md:text-5xl font-medium",
+      "h2": "text-3xl md:text-4xl font-light italic",
+      "h3": "text-2xl font-serif tracking-wide",
+      "body": "text-base md:text-lg leading-relaxed text-slate-600",
+      "caption": "text-sm tracking-widest uppercase text-slate-400"
+    },
+    "imports": [
+      "@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Great+Vibes&family=Lato:wght@300;400;700&display=swap');"
+    ]
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "main": "#5D7B93",
+        "light": "#8DA4B8",
+        "dark": "#2C445A",
+        "text": "#1A2634"
+      },
+      "secondary": {
+        "gold": "#C5A065",
+        "gold_light": "#E5D4B3",
+        "gold_dim": "#8A6D3B"
+      },
+      "accent": {
+        "sage": "#8F9E8B",
+        "sage_light": "#E8ECE7",
+        "rose_dust": "#D4B8B1"
+      },
+      "neutral": {
+        "paper": "#FDFCF8",
+        "cream": "#F7F5F0",
+        "stone": "#E6E2DD",
+        "charcoal": "#2D2D2D"
+      },
+      "feedback": {
+        "success": "#7A9E7E",
+        "error": "#B85C5C",
+        "warning": "#D4A353"
+      }
+    },
+    "backgrounds": {
+      "app_bg": "bg-[#FDFCF8]",
+      "card_bg": "bg-white/80 backdrop-blur-sm",
+      "admin_bg": "bg-slate-50/50"
+    },
+    "gradients": {
+      "gold_shimmer": "linear-gradient(135deg, #C5A065 0%, #E5D4B3 50%, #C5A065 100%)",
+      "blue_mist": "linear-gradient(to bottom, #FDFCF8 0%, #E8ECE7 100%)"
+    }
+  },
+  "assets": {
+    "images": {
+      "hero_couple_illustration": "use_favicon_or_placeholder_illustration",
+      "decor_abstract_blue": "https://customer-assets.emergentagent.com/job_casamento-presentes-1/artifacts/hjorioag_Screenshot_35.png",
+      "texture_paper": "https://images.unsplash.com/photo-1708379584923-f44da1553304?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHw0fHxjcmVhbSUyMHBhcGVyJTIwdGV4dHVyZSUyMGNsb3NlJTIwdXB8ZW58MHx8fHwxNzcyNjA3OTM0fDA&ixlib=rb-4.1.0&q=85",
+      "decor_floral": "https://images.unsplash.com/photo-1762805088436-ffa7b89779a9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTZ8MHwxfHNlYXJjaHwyfHx3YXRlcmNvbG9yJTIwZmxvcmFsJTIwd2VkZGluZyUyMGJvcmRlcnxlbnwwfHx8fDE3NzI2MDc5MzN8MA&ixlib=rb-4.1.0&q=85"
+    },
+    "icons": "lucide-react"
+  },
+  "components": {
+    "ui_primitives": {
+      "button": {
+        "primary": "bg-[#5D7B93] text-white hover:bg-[#2C445A] rounded-full px-8 py-3 font-serif transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1",
+        "secondary": "border border-[#C5A065] text-[#8A6D3B] hover:bg-[#F7F5F0] rounded-full px-8 py-3 font-serif transition-all",
+        "ghost": "text-[#5D7B93] hover:text-[#2C445A] hover:bg-transparent font-sans uppercase tracking-widest text-xs"
+      },
+      "input": "bg-white/50 border-b border-[#C5A065]/30 focus:border-[#C5A065] rounded-none px-0 py-4 font-serif text-xl placeholder:text-slate-300 focus:ring-0 transition-colors bg-transparent",
+      "card": "bg-white/90 backdrop-blur-md border border-white/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-xl p-8"
+    },
+    "custom_components": {
+      "InvitationEnvelope": {
+        "description": "A container that simulates opening an envelope. Use framer-motion to slide the 'flap' up.",
+        "style": "bg-[#F7F5F0] shadow-2xl max-w-2xl mx-auto my-12 relative overflow-hidden"
+      },
+      "RSVPWizard": {
+        "description": "Multi-step form. Step 1: Name, Step 2: Attendance, Step 3: Guests, Step 4: Message.",
+        "style": "Minimalist inputs, large typography, smooth transitions between steps."
+      },
+      "GiftCard": {
+        "description": "Product card for registry items. Shows image, price, and 'Gift This' button.",
+        "style": "Clean image aspect-ratio, elegant typography for item name."
+      },
+      "VaquinhaBar": {
+        "description": "Progress bar for crowdfunding goals.",
+        "style": "Height: 8px, rounded-full. Fill color: Gold Gradient. Background: Slate-100."
+      }
+    }
+  },
+  "layout_strategies": {
+    "public_pages": {
+      "structure": "Single Column (Mobile First) -> Max Width 4xl on Desktop",
+      "background_layer": "Fixed position paper texture overlay with mix-blend-mode: multiply opacity-30",
+      "spacing": "Gap-12 or Gap-24 between sections. Extensive white space."
+    },
+    "admin_pages": {
+      "structure": "Sidebar Layout (Collapsible) + Main Content Area",
+      "grid": "Bento Grid for Dashboard (Stats), Table View for Guests/Gifts",
+      "style": "Clean, dense, utilitarian but using the brand fonts for headers."
+    }
+  },
+  "motion": {
+    "library": "framer-motion",
+    "presets": {
+      "fade_up": {
+        "initial": { "opacity": 0, "y": 20 },
+        "animate": { "opacity": 1, "y": 0 },
+        "transition": { "duration": 0.6, "ease": "easeOut" }
+      },
+      "stagger_children": {
+        "animate": { "transition": { "staggerChildren": 0.1 } }
+      }
+    }
+  },
+  "accessibility": {
+    "contrast_check": "Ensure Gold text is dark enough (#8A6D3B) on light backgrounds. Do not use light gold text on white.",
+    "focus_states": "Focus ring should be Gold (#C5A065) with an offset."
+  },
+  "instructions_to_main_agent": [
+    "1. INSTALL FONTS: Add the Google Fonts import to index.css immediately.",
+    "2. THEME SETUP: Update tailwind.config.js with the custom color palette defined above.",
+    "3. ASSETS: Create a distinct 'PaperOverlay' component that sits fixed at z-0 to give the texture to the whole app.",
+    "4. RSVP LOGIC: Ensure the 'Guest' addition logic allows dynamic addition of multiple family members.",
+    "5. ADMIN: Protect /admin routes with a simple hardcoded login first (User wants 'ID unique and password').",
+    "6. USE SHADCN: Use Shadcn UI for the Admin Panel tables, dialogs, and forms, but styled with the custom CSS variables.",
+    "7. UNIVERSAL: Apply the 'E1' design principles—asymmetry in the landing page, texture over flat colors, and emotive typography."
+  ],
+  "universal_guidelines": [
+    "Do not use gradients for dark colors.",
+    "Avoid 'Inter' font for headings; use Cormorant Garamond.",
+    "Use layered shadows for depth.",
+    "All interactive elements must have data-testid attributes.",
+    "Use 'sonner' for toast notifications."
+  ]
+}
