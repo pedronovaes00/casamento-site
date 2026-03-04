@@ -64,9 +64,7 @@ export const RSVPForm = ({ onComplete }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-wedding-skyBlue via-wedding-blueLight to-wedding-blue py-16 px-6 relative overflow-hidden">
-      {/* Decorative Flowers - removed small ones, will use large corner flowers instead */}
-      
+    <div className="min-h-screen bg-transparent py-16 px-6 relative overflow-hidden">
       <div className="max-w-2xl mx-auto relative z-10">
         {/* Progress Indicator */}
         <div className="mb-12">
@@ -107,10 +105,6 @@ export const RSVPForm = ({ onComplete }) => {
               exit={{ opacity: 0, x: -20 }}
               className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12 relative"
             >
-              {/* Small flower decorations */}
-              <Flower2 className="absolute -top-3 -right-3 w-8 h-8 text-wedding-goldLight" />
-              <Flower2 className="absolute -bottom-3 -left-3 w-6 h-6 text-wedding-sage/60" />
-              
               <h2 className="font-serif text-3xl md:text-4xl text-slate-800 mb-8 text-center">
                 Confirme sua presença
               </h2>
@@ -196,10 +190,6 @@ export const RSVPForm = ({ onComplete }) => {
               exit={{ opacity: 0, x: -20 }}
               className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12 relative"
             >
-              {/* Small flower decorations */}
-              <Flower2 className="absolute -top-3 -right-3 w-8 h-8 text-wedding-roseDust" />
-              <Flower2 className="absolute -bottom-3 -left-3 w-6 h-6 text-wedding-goldLight/60" />
-              
               <h2 className="font-serif text-3xl md:text-4xl text-slate-800 mb-4 text-center">
                 Acompanhantes
               </h2>

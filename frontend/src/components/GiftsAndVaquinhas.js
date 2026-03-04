@@ -46,12 +46,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   const availableGifts = gifts.filter(g => !g.isTaken);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-wedding-skyBlue via-wedding-blueLight to-wedding-blue py-16 px-6 relative overflow-hidden">
-      {/* Decorative Flowers */}
-      <Flower2 className="absolute top-10 right-10 w-20 h-20 text-wedding-gold/15 -rotate-12 animate-pulse" />
-      <Flower2 className="absolute top-1/4 left-10 w-14 h-14 text-wedding-sage/20 rotate-45" />
-      <Flower2 className="absolute bottom-20 right-1/4 w-16 h-16 text-wedding-roseDust/25 -rotate-90" />
-      <Flower2 className="absolute bottom-40 left-1/3 w-12 h-12 text-wedding-goldLight/30 rotate-12" />
+    <div className="min-h-screen bg-transparent py-16 px-6 relative overflow-hidden">
       
       <div className="max-w-6xl mx-auto relative z-10">
         {/* Header */}
