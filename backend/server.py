@@ -15,7 +15,9 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import jwt
 from passlib.hash import bcrypt
-import shutil
+import qrcode
+from io import BytesIO
+import base64
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -111,6 +113,7 @@ class VaquinhaCreate(BaseModel):
     title: str
     description: Optional[str] = None
     goal: float
+    currentAmount: Optional[float] = 0.0
     pixKey: Optional[str] = None
     qrCodeUrl: Optional[str] = None
 
@@ -281,6 +284,59 @@ async def delete_vaquinha(vaquinha_id: str, admin: dict = Depends(verify_admin_t
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Vaquinha não encontrada")
     return {"message": "Vaquinha deletada com sucesso"}
+
+# ============ DONATION ROUTES ============
+
+class DonationRequest(BaseModel):
+    vaquinha_id: str
+    amount: float
+    donor_name: Optional[str] = "Anônimo"
+
+@api_router.post("/vaquinhas/{vaquinha_id}/donate")
+async def register_donation(vaquinha_id: str, donation: DonationRequest):
+    """Register a donation and update vaquinha progress"""
+    vaquinha = await db.vaquinhas.find_one({"id": vaquinha_id}, {"_id": 0})
+    if not vaquinha:
+        raise HTTPException(status_code=404, detail="Vaquinha não encontrada")
+    
+    # Update current amount
+    new_amount = vaquinha.get('currentAmount', 0) + donation.amount
+    
+    await db.vaquinhas.update_one(
+        {"id": vaquinha_id},
+        {"$set": {"currentAmount": new_amount}}
+    )
+    
+    return {
+        "message": "Doação registrada com sucesso!",
+        "newTotal": new_amount,
+        "percentage": (new_amount / vaquinha['goal']) * 100
+    }
+
+@api_router.post("/generate-pix-qr")
+async def generate_pix_qr(pix_key: str, amount: float, name: str = "Casal"):
+    """Generate PIX QR Code with amount"""
+    try:
+        # Generate PIX payload (simplified - real implementation needs proper EMV format)
+        # For now, just generate QR with PIX key and amount info
+        pix_payload = f"PIX|{pix_key}|{amount:.2f}|{name}"
+        
+        # Generate QR Code
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(pix_payload)
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convert to base64
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        
+        return {"qrCodeBase64": f"data:image/png;base64,{img_str}"}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar QR Code: {str(e)}")
 
 # ============ WEDDING INFO ROUTES ============
 

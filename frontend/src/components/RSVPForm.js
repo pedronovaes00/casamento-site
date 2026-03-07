@@ -68,9 +68,9 @@ export const RSVPForm = ({ onComplete }) => {
       <div className="max-w-2xl mx-auto relative z-10">
         {/* Progress Indicator */}
         <div className="mb-12">
-          <div className="flex justify-between items-center mb-3">
+          <div className="flex justify-center items-center mb-3 max-w-md mx-auto">
             {[1, 2].map((s) => (
-              <div key={s} className="flex items-center flex-1">
+              <div key={s} className="flex items-center">
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center font-serif font-semibold transition-all duration-300 ${
                     step >= s ? 'bg-wedding-blue text-white' : 'bg-wedding-stone text-slate-400'
@@ -80,7 +80,7 @@ export const RSVPForm = ({ onComplete }) => {
                   {s}
                 </div>
                 {s < 2 && (
-                  <div className={`flex-1 h-1 mx-2 rounded transition-all duration-300 ${
+                  <div className={`w-64 h-1 mx-4 rounded transition-all duration-300 ${
                     step > s ? 'bg-wedding-blue' : 'bg-wedding-stone'
                   }`} />
                 )}

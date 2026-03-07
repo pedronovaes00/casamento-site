@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Gift, Heart, QrCode, CheckCircle, Flower2 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import DonationModal from './DonationModal';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;

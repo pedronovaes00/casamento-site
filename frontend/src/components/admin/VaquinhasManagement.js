@@ -46,12 +46,13 @@ export const VaquinhasManagement = () => {
         title: vaquinha.title,
         description: vaquinha.description || '',
         goal: vaquinha.goal.toString(),
+        currentAmount: vaquinha.currentAmount || 0,
         pixKey: vaquinha.pixKey || '',
         qrCodeUrl: vaquinha.qrCodeUrl || ''
       });
     } else {
       setEditingVaquinha(null);
-      setFormData({ title: '', description: '', goal: '', pixKey: '', qrCodeUrl: '' });
+      setFormData({ title: '', description: '', goal: '', currentAmount: 0, pixKey: '', qrCodeUrl: '' });
     }
     setShowDialog(true);
   };
@@ -262,6 +263,24 @@ export const VaquinhasManagement = () => {
                 min="0"
                 className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2 focus:outline-none"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Valor Arrecadado (R$)
+              </label>
+              <input
+                type="number"
+                value={formData.currentAmount || 0}
+                onChange={(e) => setFormData(prev => ({ ...prev, currentAmount: parseFloat(e.target.value) || 0 }))}
+                placeholder="0.00"
+                data-testid="vaquinha-current-amount-input"
+                step="0.01"
+                min="0"
+                className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2 focus:outline-none"
+              />
+              <p className="text-xs text-slate-500 mt-2">
+                💡 Atualize manualmente conforme receber doações via PIX
+              </p>
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
