@@ -11,8 +11,10 @@ export const FloralDecoration = () => {
         initial={{ opacity: 0, x: 50, y: -50 }}
         animate={{ opacity: 0.85, x: 0, y: 0 }}
         transition={{ duration: 1.2, ease: "easeOut" }}
-        className="fixed top-0 right-0 w-96 h-80 pointer-events-none z-0"
+        className="fixed top-0 right-0 pointer-events-none z-0"
         style={{
+          width: 'clamp(140px, 30vw, 380px)',
+          height: 'clamp(120px, 25vw, 320px)',
           backgroundImage: `url(${FLORAL_IMAGE})`,
           backgroundSize: 'cover',
           backgroundPosition: 'top right',
@@ -25,8 +27,10 @@ export const FloralDecoration = () => {
         initial={{ opacity: 0, x: -50, y: 50 }}
         animate={{ opacity: 0.85, x: 0, y: 0 }}
         transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }}
-        className="fixed bottom-0 left-0 w-80 h-72 pointer-events-none z-0"
+        className="fixed bottom-0 left-0 pointer-events-none z-0"
         style={{
+          width: 'clamp(120px, 28vw, 320px)',
+          height: 'clamp(100px, 22vw, 288px)',
           backgroundImage: `url(${FLORAL_IMAGE})`,
           backgroundSize: 'cover',
           backgroundPosition: 'bottom left',

@@ -26,13 +26,13 @@ export const InvitationLanding = ({ guest, onContinue }) => {
   return (
     <div className="min-h-screen bg-transparent relative overflow-hidden">
       
-      <div className="relative z-10 max-w-4xl mx-auto px-6 py-16 md:py-24">
+      <div className="relative z-10 max-w-4xl mx-auto px-6 py-8 md:py-24">
         {/* Header with personalized message */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-center mb-16"
+          className="text-center mb-8 md:mb-16"
         >
           <motion.div
             initial={{ scale: 0 }}
@@ -44,7 +44,7 @@ export const InvitationLanding = ({ guest, onContinue }) => {
             <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-wedding-gold animate-pulse" />
           </motion.div>
           
-          <h1 className="font-script text-5xl md:text-7xl text-slate-800 mb-6 drop-shadow-md">
+          <h1 className="font-script text-4xl md:text-7xl text-slate-800 mb-6 drop-shadow-md">
             Você está convidado!
           </h1>
           
