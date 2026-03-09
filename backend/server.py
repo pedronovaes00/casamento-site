@@ -16,6 +16,9 @@ from datetime import datetime, timezone, timedelta
 import jwt
 from passlib.hash import bcrypt
 import qrcode
+import cloudinary
+import cloudinary.uploader
+from cloudinary.utils import cloudinary_url
 from io import BytesIO
 import base64
 
@@ -39,6 +42,12 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # JWT Config
+cloudinary.config(
+    cloud_name="Root",
+    api_key="874766372298938",
+    api_secret="0b-z4vM-e_5dmjJQLPXpXIrxHbE"
+)
+
 JWT_SECRET = os.environ.get('JWT_SECRET', 'wedding-secret-key-2024')
 JWT_ALGORITHM = 'HS256'
 
@@ -367,20 +376,11 @@ async def update_wedding_info(info_input: WeddingInfoUpdate, admin: dict = Depen
 
 @api_router.post("/upload-image")
 async def upload_image(file: UploadFile = File(...), admin: dict = Depends(verify_admin_token)):
-    """Upload an image and return the URL"""
+    """Upload an image to Cloudinary and return the URL"""
     try:
-        # Generate unique filename
-        file_extension = file.filename.split('.')[-1]
-        unique_filename = f"{uuid.uuid4()}.{file_extension}"
-        file_path = UPLOAD_DIR / unique_filename
-        
-        # Save file
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        # Return filename only (frontend will build full URL)
-        return {"filename": unique_filename}
-    
+        contents = await file.read()
+        result = cloudinary.uploader.upload(contents, folder="casamento")
+        return {"url": result["secure_url"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao fazer upload: {str(e)}")
 

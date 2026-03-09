@@ -60,7 +60,7 @@ export const ImageUpload = ({ value, onChange, label = "Imagem" }) => {
         },
       });
 
-      const imageUrl = `${BACKEND_URL}/api/uploads/${response.data.filename}`;
+      const imageUrl = response.data.url;
       setPreview(imageUrl);
       onChange(imageUrl);
       toast.success('Imagem enviada com sucesso!');
