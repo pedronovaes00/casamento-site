@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Gift, Heart, QrCode } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Gift, Heart, QrCode, X } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import DonationModal from './DonationModal';
@@ -8,17 +8,71 @@ import DonationModal from './DonationModal';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+// Modal de confirmação bonitinho
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, confirmLabel, icon }) => {
+  if (!isOpen) return null;
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 z-10 text-center"
+        >
+          <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+            <X className="w-5 h-5" />
+          </button>
+          <div className="w-16 h-16 bg-wedding-cream rounded-full flex items-center justify-center mx-auto mb-4">
+            {icon}
+          </div>
+          <h2 className="font-serif text-2xl text-slate-800 mb-2">{title}</h2>
+          <p className="text-slate-500 mb-8">{message}</p>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-full py-3 font-serif transition-all"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={onConfirm}
+              className="flex-1 bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-full py-3 font-serif transition-all shadow-lg"
+            >
+              {confirmLabel}
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+};
+
 export const GiftsAndVaquinhas = ({ guest }) => {
   const [gifts, setGifts] = useState([]);
   const [vaquinhas, setVaquinhas] = useState([]);
   const [weddingInfo, setWeddingInfo] = useState(null);
   const [activeTab, setActiveTab] = useState('gifts');
-  const [pixGiftId, setPixGiftId] = useState(null);
   const [donationVaquinha, setDonationVaquinha] = useState(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  // Estados do modal de confirmação
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    giftId: null,
+    type: null, // "physical" ou "pix"
+  });
+
+  // Estado do modal PIX (abre após confirmar doação via pix)
+  const [pixModal, setPixModal] = useState(false);
+
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     try {
@@ -35,15 +89,24 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     }
   };
 
-  const handleClaimGift = async (giftId) => {
+  const handleClaimGift = async (giftId, claimType) => {
     try {
-      await axios.put(`${API}/gifts/${giftId}/claim?guest_id=${guest.id}&guest_name=${encodeURIComponent(guest.name)}`);
-      toast.success('Presente reservado com sucesso!');
+      await axios.put(`${API}/gifts/${giftId}/claim?guest_id=${guest.id}&guest_name=${encodeURIComponent(guest.name)}&claim_type=${claimType}`);
+      toast.success(claimType === 'pix' ? 'Presente reservado! Agora faça o PIX 💛' : 'Presente reservado com sucesso!');
       fetchData();
+      // Se for pix, abre o modal do pix depois de reservar
+      if (claimType === 'pix') {
+        setPixModal(true);
+      }
     } catch (error) {
-      console.error('Erro ao reservar presente:', error);
       toast.error(error.response?.data?.detail || 'Erro ao reservar presente');
     }
+  };
+
+  const handleConfirm = () => {
+    const { giftId, type } = confirmModal;
+    setConfirmModal({ isOpen: false, giftId: null, type: null });
+    handleClaimGift(giftId, type);
   };
 
   const availableGifts = gifts.filter(g => !g.isTaken);
@@ -53,11 +116,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
       <div className="max-w-6xl mx-auto relative z-10">
 
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
           <Heart className="w-12 h-12 text-wedding-roseDust fill-wedding-roseDust mx-auto mb-4" />
           <h1 className="font-serif text-4xl md:text-5xl text-slate-800 mb-4 drop-shadow-sm">
             Obrigado por confirmar, {guest.name.split(' ')[0]}!
@@ -72,36 +131,22 @@ export const GiftsAndVaquinhas = ({ guest }) => {
           <button
             onClick={() => setActiveTab('gifts')}
             data-testid="gifts-tab-button"
-            className={`px-6 py-3 rounded-full font-serif transition-all ${
-              activeTab === 'gifts'
-                ? 'bg-wedding-blue text-white shadow-lg'
-                : 'bg-white/80 text-wedding-blue hover:bg-white'
-            }`}
+            className={`px-6 py-3 rounded-full font-serif transition-all ${activeTab === 'gifts' ? 'bg-wedding-blue text-white shadow-lg' : 'bg-white/80 text-wedding-blue hover:bg-white'}`}
           >
-            <Gift className="w-5 h-5 inline mr-2" />
-            Presentes
+            <Gift className="w-5 h-5 inline mr-2" />Presentes
           </button>
           <button
             onClick={() => setActiveTab('vaquinhas')}
             data-testid="vaquinhas-tab-button"
-            className={`px-6 py-3 rounded-full font-serif transition-all ${
-              activeTab === 'vaquinhas'
-                ? 'bg-wedding-blue text-white shadow-lg'
-                : 'bg-white/80 text-wedding-blue hover:bg-white'
-            }`}
+            className={`px-6 py-3 rounded-full font-serif transition-all ${activeTab === 'vaquinhas' ? 'bg-wedding-blue text-white shadow-lg' : 'bg-white/80 text-wedding-blue hover:bg-white'}`}
           >
-            <Heart className="w-5 h-5 inline mr-2" />
-            Vaquinhas
+            <Heart className="w-5 h-5 inline mr-2" />Vaquinhas
           </button>
         </div>
 
         {/* Gifts Tab */}
         {activeTab === 'gifts' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {availableGifts.length === 0 ? (
               <div className="col-span-full text-center py-12">
                 <p className="text-slate-500 font-sans">Nenhum presente disponível no momento</p>
@@ -122,47 +167,23 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                   )}
                   <div className="p-6">
                     <h3 className="font-serif text-xl text-wedding-blue mb-2">{gift.name}</h3>
-                    {gift.description && (
-                      <p className="text-sm text-slate-600 mb-4">{gift.description}</p>
-                    )}
-                    {gift.price && (
-                      <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>
-                    )}
+                    {gift.description && <p className="text-sm text-slate-600 mb-4">{gift.description}</p>}
+                    {gift.price && <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>}
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleClaimGift(gift.id)}
+                        onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'physical' })}
                         data-testid={`claim-gift-button-${gift.id}`}
                         className="flex-1 bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 font-serif transition-all"
                       >
                         Presentear
                       </button>
                       <button
-                        onClick={() =>{
-                            console.log('pixGiftId:', pixGiftId, 'gift.id:', gift.id, 'weddingInfo:', weddingInfo);
-    setPixGiftId(pixGiftId === gift.id ? null : gift.id);
-                          setPixGiftId(pixGiftId === gift.id ? null : gift.id);}}
+                        onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'pix' })}
                         className="flex-1 bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 font-serif transition-all"
                       >
-                        Doar valor via PIX
+                        Doar via PIX
                       </button>
                     </div>
-
-                    {pixGiftId === gift.id && weddingInfo?.pixKey && (
-                      <div className="mt-4 bg-wedding-cream rounded-lg p-4">
-                        {weddingInfo.qrCodeUrl && (
-                          <div className="text-center mb-3">
-                            <img src={weddingInfo.qrCodeUrl} alt="QR Code PIX" className="w-36 h-36 mx-auto" />
-                          </div>
-                        )}
-                        <p className="text-sm text-slate-500 mb-1 flex items-center gap-2">
-                          <QrCode className="w-4 h-4" />
-                          Chave PIX:
-                        </p>
-                        <p className="font-mono text-wedding-blue bg-white px-3 py-2 rounded text-sm break-all">
-                          {weddingInfo.pixKey}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </motion.div>
               ))
@@ -172,11 +193,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
 
         {/* Vaquinhas Tab */}
         {activeTab === 'vaquinhas' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="max-w-3xl mx-auto space-y-6"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto space-y-6">
             {vaquinhas.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-slate-500 font-sans">Nenhuma vaquinha disponível no momento</p>
@@ -191,39 +208,25 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                   data-testid={`vaquinha-card-${vaquinha.id}`}
                 >
                   <h3 className="font-serif text-2xl text-wedding-blue mb-2">{vaquinha.title}</h3>
-                  {vaquinha.description && (
-                    <p className="text-slate-600 mb-6">{vaquinha.description}</p>
-                  )}
-
-                  {/* Progress Bar */}
+                  {vaquinha.description && <p className="text-slate-600 mb-6">{vaquinha.description}</p>}
                   <div className="mb-6">
                     <div className="flex justify-between text-sm mb-2">
                       <span className="text-slate-500">Meta: R$ {vaquinha.goal.toFixed(2)}</span>
-                      <span className="text-wedding-blue font-semibold">
-                        {((vaquinha.currentAmount / vaquinha.goal) * 100).toFixed(0)}%
-                      </span>
+                      <span className="text-wedding-blue font-semibold">{((vaquinha.currentAmount / vaquinha.goal) * 100).toFixed(0)}%</span>
                     </div>
                     <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${Math.min((vaquinha.currentAmount / vaquinha.goal) * 100, 100)}%`,
-                          background: 'linear-gradient(135deg, #C5A065 0%, #E5D4B3 50%, #C5A065 100%)'
-                        }}
+                        style={{ width: `${Math.min((vaquinha.currentAmount / vaquinha.goal) * 100, 100)}%`, background: 'linear-gradient(135deg, #C5A065 0%, #E5D4B3 50%, #C5A065 100%)' }}
                       />
                     </div>
                   </div>
-
-                  {/* Contribuir Button */}
                   <button
                     onClick={() => setDonationVaquinha(vaquinha)}
                     className="w-full bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-lg py-3 font-serif transition-all shadow-lg mb-4"
                   >
-                    <Heart className="w-4 h-4 inline mr-2" />
-                    Contribuir
+                    <Heart className="w-4 h-4 inline mr-2" />Contribuir
                   </button>
-
-                  {/* PIX Info */}
                   {(vaquinha.pixKey || vaquinha.qrCodeUrl) && (
                     <div className="bg-wedding-cream rounded-lg p-4">
                       {vaquinha.qrCodeUrl && (
@@ -233,13 +236,8 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                       )}
                       {vaquinha.pixKey && (
                         <div>
-                          <p className="text-sm text-slate-500 mb-1 flex items-center gap-2">
-                            <QrCode className="w-4 h-4" />
-                            Chave PIX:
-                          </p>
-                          <p className="font-mono text-wedding-blue bg-white px-3 py-2 rounded">
-                            {vaquinha.pixKey}
-                          </p>
+                          <p className="text-sm text-slate-500 mb-1 flex items-center gap-2"><QrCode className="w-4 h-4" />Chave PIX:</p>
+                          <p className="font-mono text-wedding-blue bg-white px-3 py-2 rounded">{vaquinha.pixKey}</p>
                         </div>
                       )}
                     </div>
@@ -248,7 +246,6 @@ export const GiftsAndVaquinhas = ({ guest }) => {
               ))
             )}
 
-            {/* General Donation */}
             {weddingInfo?.pixKey && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -256,12 +253,8 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                 className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg p-8 border-2 border-wedding-gold"
                 data-testid="general-donation-card"
               >
-                <h3 className="font-serif text-2xl text-wedding-blue mb-4">
-                  Doação Geral para o Casal
-                </h3>
-                <p className="text-slate-600 mb-6">
-                  Você também pode fazer uma doação geral para nos ajudar!
-                </p>
+                <h3 className="font-serif text-2xl text-wedding-blue mb-4">Doação Geral para o Casal</h3>
+                <p className="text-slate-600 mb-6">Você também pode fazer uma doação geral para nos ajudar!</p>
                 <div className="bg-wedding-cream rounded-lg p-4">
                   {weddingInfo.qrCodeUrl && (
                     <div className="text-center mb-4">
@@ -269,13 +262,8 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                     </div>
                   )}
                   <div>
-                    <p className="text-sm text-slate-500 mb-1 flex items-center gap-2">
-                      <QrCode className="w-4 h-4" />
-                      Chave PIX:
-                    </p>
-                    <p className="font-mono text-wedding-blue bg-white px-3 py-2 rounded">
-                      {weddingInfo.pixKey}
-                    </p>
+                    <p className="text-sm text-slate-500 mb-1 flex items-center gap-2"><QrCode className="w-4 h-4" />Chave PIX:</p>
+                    <p className="font-mono text-wedding-blue bg-white px-3 py-2 rounded">{weddingInfo.pixKey}</p>
                   </div>
                 </div>
               </motion.div>
@@ -283,6 +271,75 @@ export const GiftsAndVaquinhas = ({ guest }) => {
           </motion.div>
         )}
       </div>
+
+      {/* Modal de confirmação - Presentear */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen && confirmModal.type === 'physical'}
+        onClose={() => setConfirmModal({ isOpen: false, giftId: null, type: null })}
+        onConfirm={handleConfirm}
+        title="Confirmar Presente"
+        message="Você confirma que vai presentear o casal com este item?"
+        confirmLabel="Sim, vou presentear!"
+        icon={<Gift className="w-8 h-8 text-wedding-sage" />}
+      />
+
+      {/* Modal de confirmação - PIX */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen && confirmModal.type === 'pix'}
+        onClose={() => setConfirmModal({ isOpen: false, giftId: null, type: null })}
+        onConfirm={handleConfirm}
+        title="Confirmar Doação via PIX"
+        message="Você confirma que vai realizar a doação via PIX para este presente?"
+        confirmLabel="Sim, vou fazer o PIX!"
+        icon={<QrCode className="w-8 h-8 text-wedding-gold" />}
+      />
+
+      {/* Modal PIX - abre após confirmar doação via pix */}
+      {pixModal && weddingInfo && (
+        <AnimatePresence>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPixModal(false)}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 z-10 text-center"
+            >
+              <button onClick={() => setPixModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+              <QrCode className="w-12 h-12 text-wedding-blue mx-auto mb-4" />
+              <h2 className="font-serif text-2xl text-slate-800 mb-2">Faça o PIX</h2>
+              <p className="text-slate-500 mb-6">Use a chave ou QR code abaixo para realizar a doação</p>
+              <div className="bg-wedding-cream rounded-lg p-4">
+                {weddingInfo.qrCodeUrl && (
+                  <div className="text-center mb-4">
+                    <img src={weddingInfo.qrCodeUrl} alt="QR Code PIX" className="w-48 h-48 mx-auto" />
+                  </div>
+                )}
+                {weddingInfo.pixKey && (
+                  <div>
+                    <p className="text-sm text-slate-500 mb-1 flex items-center justify-center gap-2"><QrCode className="w-4 h-4" />Chave PIX:</p>
+                    <p className="font-mono text-wedding-blue bg-white px-3 py-2 rounded text-sm break-all">{weddingInfo.pixKey}</p>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => setPixModal(false)}
+                className="w-full mt-6 bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-full py-3 font-serif transition-all shadow-lg"
+              >
+                Feito!
+              </button>
+            </motion.div>
+          </div>
+        </AnimatePresence>
+      )}
 
       {/* Donation Modal */}
       <DonationModal

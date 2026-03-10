@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Gift, Plus, Trash2, CheckCircle, Edit2 } from 'lucide-react';
+import { Gift, Plus, Trash2, CheckCircle, Edit2, Unlock, QrCode, ShoppingBag } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -22,16 +22,13 @@ export const GiftsManagement = () => {
     price: ''
   });
 
-  useEffect(() => {
-    fetchGifts();
-  }, []);
+  useEffect(() => { fetchGifts(); }, []);
 
   const fetchGifts = async () => {
     try {
       const response = await axios.get(`${API}/gifts`);
       setGifts(response.data);
     } catch (error) {
-      console.error('Erro ao carregar presentes:', error);
       toast.error('Erro ao carregar presentes');
     } finally {
       setLoading(false);
@@ -43,30 +40,24 @@ export const GiftsManagement = () => {
       toast.error('O nome do presente é obrigatório');
       return;
     }
-
     try {
       const token = localStorage.getItem('adminToken');
-      
       if (editingGift) {
-        // Update existing gift
         await axios.put(`${API}/gifts/${editingGift.id}`, newGift, {
           headers: { Authorization: `Bearer ${token}` }
         });
         toast.success('Presente atualizado com sucesso!');
       } else {
-        // Create new gift
         await axios.post(`${API}/gifts`, newGift, {
           headers: { Authorization: `Bearer ${token}` }
         });
         toast.success('Presente adicionado com sucesso!');
       }
-      
       setShowAddDialog(false);
       setEditingGift(null);
       setNewGift({ name: '', description: '', imageUrl: '', price: '' });
       fetchGifts();
     } catch (error) {
-      console.error('Erro ao salvar presente:', error);
       toast.error('Erro ao salvar presente');
     }
   };
@@ -83,10 +74,7 @@ export const GiftsManagement = () => {
   };
 
   const handleDeleteGift = async (giftId) => {
-    if (!window.confirm('Tem certeza que deseja deletar este presente?')) {
-      return;
-    }
-
+    if (!window.confirm('Tem certeza que deseja deletar este presente?')) return;
     try {
       const token = localStorage.getItem('adminToken');
       await axios.delete(`${API}/gifts/${giftId}`, {
@@ -95,8 +83,21 @@ export const GiftsManagement = () => {
       toast.success('Presente deletado com sucesso!');
       fetchGifts();
     } catch (error) {
-      console.error('Erro ao deletar presente:', error);
       toast.error('Erro ao deletar presente');
+    }
+  };
+
+  const handleUnclaimGift = async (giftId) => {
+    if (!window.confirm('Deseja liberar este presente novamente?')) return;
+    try {
+      const token = localStorage.getItem('adminToken');
+      await axios.delete(`${API}/gifts/${giftId}/claim`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('Presente liberado com sucesso!');
+      fetchGifts();
+    } catch (error) {
+      toast.error('Erro ao liberar presente');
     }
   };
 
@@ -143,11 +144,7 @@ export const GiftsManagement = () => {
             >
               {gift.imageUrl && (
                 <div className="aspect-video bg-slate-100 overflow-hidden">
-                  <img
-                    src={gift.imageUrl}
-                    alt={gift.name}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={gift.imageUrl} alt={gift.name} className="w-full h-full object-cover" />
                 </div>
               )}
               <div className="p-6">
@@ -163,12 +160,24 @@ export const GiftsManagement = () => {
                 {gift.price && (
                   <p className="text-wedding-gold font-semibold mb-3">{gift.price}</p>
                 )}
+
+                {/* Tipo de reserva */}
                 {gift.isTaken && gift.takenByName && (
-                  <p className="text-xs bg-green-50 text-green-700 px-3 py-1 rounded-full mb-3">
-                    Escolhido por: {gift.takenByName}
-                  </p>
+                  <div className="mb-3">
+                    <p className="text-xs text-green-700 mb-1">
+                      Reservado por: {gift.takenByName}
+                    </p>
+                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                      {gift.claimType === 'pix' ? (
+                        <><QrCode className="w-3 h-3" /> Pagamento via PIX</>
+                      ) : (
+                        <><ShoppingBag className="w-3 h-3" /> Presente físico</>
+                      )}
+                    </p>
+                  </div>
                 )}
-                <div className="flex gap-2">
+
+                <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => handleEditGift(gift)}
                     data-testid={`edit-gift-button-${gift.id}`}
@@ -177,6 +186,15 @@ export const GiftsManagement = () => {
                     <Edit2 className="w-4 h-4" />
                     Editar
                   </button>
+                  {gift.isTaken && (
+                    <button
+                      onClick={() => handleUnclaimGift(gift.id)}
+                      className="flex-1 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg py-2 transition-all inline-flex items-center justify-center gap-2"
+                    >
+                      <Unlock className="w-4 h-4" />
+                      Liberar
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDeleteGift(gift.id)}
                     data-testid={`delete-gift-button-${gift.id}`}
@@ -208,9 +226,7 @@ export const GiftsManagement = () => {
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Nome do Presente *
-              </label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Nome do Presente *</label>
               <input
                 type="text"
                 value={newGift.name}
@@ -221,9 +237,7 @@ export const GiftsManagement = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Descrição
-              </label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Descrição</label>
               <textarea
                 value={newGift.description}
                 onChange={(e) => setNewGift(prev => ({ ...prev, description: e.target.value }))}
@@ -241,9 +255,7 @@ export const GiftsManagement = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Preço
-              </label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Preço</label>
               <input
                 type="text"
                 value={newGift.price}
@@ -254,19 +266,10 @@ export const GiftsManagement = () => {
               />
             </div>
             <div className="flex gap-3 pt-4">
-              <Button
-                onClick={() => setShowAddDialog(false)}
-                variant="outline"
-                className="flex-1"
-                data-testid="cancel-add-gift-button"
-              >
+              <Button onClick={() => setShowAddDialog(false)} variant="outline" className="flex-1" data-testid="cancel-add-gift-button">
                 Cancelar
               </Button>
-              <Button
-                onClick={handleAddGift}
-                className="flex-1 bg-wedding-blue hover:bg-wedding-blueDark"
-                data-testid="confirm-add-gift-button"
-              >
+              <Button onClick={handleAddGift} className="flex-1 bg-wedding-blue hover:bg-wedding-blueDark" data-testid="confirm-add-gift-button">
                 {editingGift ? 'Salvar' : 'Adicionar'}
               </Button>
             </div>

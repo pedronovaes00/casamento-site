@@ -25,23 +25,19 @@ import base64
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# Create uploads directory
 UPLOAD_DIR = ROOT_DIR / 'uploads'
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-# Initialize mimetypes
 mimetypes.init()
 mimetypes.add_type('image/webp', '.webp')
 mimetypes.add_type('image/png', '.png')
 mimetypes.add_type('image/jpeg', '.jpg')
 mimetypes.add_type('image/jpeg', '.jpeg')
 
-# MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# JWT Config
 cloudinary.config(
     cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
     api_key=os.environ.get('CLOUDINARY_API_KEY'),
@@ -53,39 +49,31 @@ JWT_ALGORITHM = 'HS256'
 
 security = HTTPBearer()
 
-# Create the main app without a prefix
 app = FastAPI()
-
-# Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# Serve uploaded images with proper MIME types
 @api_router.get("/uploads/{filename}")
 async def serve_upload(filename: str):
-    """Serve uploaded files with correct MIME type"""
     file_path = UPLOAD_DIR / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
-    
-    # Get MIME type
     mime_type, _ = mimetypes.guess_type(str(file_path))
     if mime_type is None:
         mime_type = 'application/octet-stream'
-    
     return FileResponse(file_path, media_type=mime_type)
 
 # ============ MODELS ============
 
 class Companion(BaseModel):
     name: str
-    ageGroup: str = "Adulto"  # "Adulto" ou "Criança"
-    relation: str = "Parente"  # "Parente", "Filho(a)", "Parceiro(a)"
+    ageGroup: str = "Adulto"
+    relation: str = "Parente"
 
 class GuestCreate(BaseModel):
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
-    guestType: str  # "Amigo(a)" ou "Parente"
+    guestType: str
     companions: List[Companion] = []
 
 class Guest(BaseModel):
@@ -94,11 +82,11 @@ class Guest(BaseModel):
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
-    guestType: Optional[str] = "Amigo(a)"  # Default para dados antigos
+    guestType: Optional[str] = "Amigo(a)"
     companions: List[Companion] = []
     confirmed: bool = True
     selectedGifts: List[str] = []
-    message: Optional[str] = None  # Manter para dados antigos
+    message: Optional[str] = None
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class GiftCreate(BaseModel):
@@ -117,6 +105,7 @@ class Gift(BaseModel):
     isTaken: bool = False
     takenBy: Optional[str] = None
     takenByName: Optional[str] = None
+    claimType: Optional[str] = None  # "physical" ou "pix"
 
 class VaquinhaCreate(BaseModel):
     title: str
@@ -178,12 +167,9 @@ async def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends
 
 @api_router.post("/admin/login", response_model=AdminLoginResponse)
 async def admin_login(login_data: AdminLogin):
-    # Simple hardcoded admin check (can be improved with database)
     admin_id = os.environ.get('ADMIN_ID', 'noivos2024')
     admin_password = os.environ.get('ADMIN_PASSWORD', 'casamento123')
-    
     if login_data.adminId == admin_id and login_data.password == admin_password:
-        # Create JWT token
         token_data = {
             'adminId': login_data.adminId,
             'exp': datetime.now(timezone.utc) + timedelta(days=7)
@@ -199,21 +185,17 @@ async def admin_login(login_data: AdminLogin):
 async def create_guest(guest_input: GuestCreate):
     guest_dict = guest_input.model_dump()
     guest_obj = Guest(**guest_dict)
-    
     doc = guest_obj.model_dump()
     doc['createdAt'] = doc['createdAt'].isoformat()
-    
     await db.guests.insert_one(doc)
     return guest_obj
 
 @api_router.get("/guests", response_model=List[Guest])
 async def get_guests(admin: dict = Depends(verify_admin_token)):
     guests = await db.guests.find({}, {"_id": 0}).to_list(1000)
-    
     for guest in guests:
         if isinstance(guest.get('createdAt'), str):
             guest['createdAt'] = datetime.fromisoformat(guest['createdAt'])
-    
     return guests
 
 @api_router.delete("/guests/{guest_id}")
@@ -238,20 +220,27 @@ async def create_gift(gift_input: GiftCreate, admin: dict = Depends(verify_admin
     return gift_obj
 
 @api_router.put("/gifts/{gift_id}/claim")
-async def claim_gift(gift_id: str, guest_id: str, guest_name: str):
+async def claim_gift(gift_id: str, guest_id: str, guest_name: str, claim_type: str = "physical"):
     gift = await db.gifts.find_one({"id": gift_id}, {"_id": 0})
     if not gift:
         raise HTTPException(status_code=404, detail="Presente não encontrado")
-    
     if gift.get('isTaken'):
         raise HTTPException(status_code=400, detail="Este presente já foi escolhido")
-    
     await db.gifts.update_one(
         {"id": gift_id},
-        {"$set": {"isTaken": True, "takenBy": guest_id, "takenByName": guest_name}}
+        {"$set": {"isTaken": True, "takenBy": guest_id, "takenByName": guest_name, "claimType": claim_type}}
     )
-    
     return {"message": "Presente reservado com sucesso"}
+
+@api_router.delete("/gifts/{gift_id}/claim")
+async def unclaim_gift(gift_id: str, admin: dict = Depends(verify_admin_token)):
+    result = await db.gifts.update_one(
+        {"id": gift_id},
+        {"$set": {"isTaken": False, "takenBy": None, "takenByName": None, "claimType": None}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Presente não encontrado")
+    return {"message": "Presente liberado com sucesso"}
 
 @api_router.put("/gifts/{gift_id}")
 async def update_gift(gift_id: str, gift_input: GiftCreate, admin: dict = Depends(verify_admin_token)):
@@ -290,7 +279,7 @@ async def update_vaquinha(vaquinha_id: str, vaquinha_input: VaquinhaCreate, admi
         {"id": vaquinha_id},
         {"$set": vaquinha_input.model_dump()}
     )
-    if result.matched_count == 0:
+    if result.matched_count == 0:frontend/src
         raise HTTPException(status_code=404, detail="Vaquinha não encontrada")
     return {"message": "Vaquinha atualizada com sucesso"}
 
@@ -310,19 +299,14 @@ class DonationRequest(BaseModel):
 
 @api_router.post("/vaquinhas/{vaquinha_id}/donate")
 async def register_donation(vaquinha_id: str, donation: DonationRequest):
-    """Register a donation and update vaquinha progress"""
     vaquinha = await db.vaquinhas.find_one({"id": vaquinha_id}, {"_id": 0})
     if not vaquinha:
         raise HTTPException(status_code=404, detail="Vaquinha não encontrada")
-    
-    # Update current amount
     new_amount = vaquinha.get('currentAmount', 0) + donation.amount
-    
     await db.vaquinhas.update_one(
         {"id": vaquinha_id},
         {"$set": {"currentAmount": new_amount}}
     )
-    
     return {
         "message": "Doação registrada com sucesso!",
         "newTotal": new_amount,
@@ -331,26 +315,16 @@ async def register_donation(vaquinha_id: str, donation: DonationRequest):
 
 @api_router.post("/generate-pix-qr")
 async def generate_pix_qr(pix_key: str, amount: float, name: str = "Casal"):
-    """Generate PIX QR Code with amount"""
     try:
-        # Generate PIX payload (simplified - real implementation needs proper EMV format)
-        # For now, just generate QR with PIX key and amount info
         pix_payload = f"PIX|{pix_key}|{amount:.2f}|{name}"
-        
-        # Generate QR Code
         qr = qrcode.QRCode(version=1, box_size=10, border=4)
         qr.add_data(pix_payload)
         qr.make(fit=True)
-        
         img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Convert to base64
         buffered = BytesIO()
         img.save(buffered, format="PNG")
         img_str = base64.b64encode(buffered.getvalue()).decode()
-        
         return {"qrCodeBase64": f"data:image/png;base64,{img_str}"}
-    
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao gerar QR Code: {str(e)}")
 
@@ -360,7 +334,6 @@ async def generate_pix_qr(pix_key: str, amount: float, name: str = "Casal"):
 async def get_wedding_info():
     info = await db.wedding_info.find_one({"id": "wedding-info"}, {"_id": 0})
     if not info:
-        # Return default empty info
         default_info = WeddingInfo()
         return default_info
     return WeddingInfo(**info)
@@ -368,14 +341,12 @@ async def get_wedding_info():
 @api_router.put("/wedding-info", response_model=WeddingInfo)
 async def update_wedding_info(info_input: WeddingInfoUpdate, admin: dict = Depends(verify_admin_token)):
     update_data = {k: v for k, v in info_input.model_dump().items() if v is not None}
-    
     if update_data:
         await db.wedding_info.update_one(
             {"id": "wedding-info"},
             {"$set": update_data},
             upsert=True
         )
-    
     updated_info = await db.wedding_info.find_one({"id": "wedding-info"}, {"_id": 0})
     return WeddingInfo(**updated_info)
 
@@ -383,7 +354,6 @@ async def update_wedding_info(info_input: WeddingInfoUpdate, admin: dict = Depen
 
 @api_router.post("/upload-image")
 async def upload_image(file: UploadFile = File(...), admin: dict = Depends(verify_admin_token)):
-    """Upload an image to Cloudinary and return the URL"""
     try:
         contents = await file.read()
         result = cloudinary.uploader.upload(contents, folder="casamento")
@@ -391,7 +361,6 @@ async def upload_image(file: UploadFile = File(...), admin: dict = Depends(verif
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao fazer upload: {str(e)}")
 
-# Include the router in the main app
 app.include_router(api_router)
 
 app.add_middleware(
@@ -402,7 +371,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
