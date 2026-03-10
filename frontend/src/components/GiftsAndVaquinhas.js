@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Gift, Heart, QrCode, CheckCircle, Flower2 } from 'lucide-react';
+import { Gift, Heart, QrCode } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import DonationModal from './DonationModal';
@@ -13,6 +13,8 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   const [vaquinhas, setVaquinhas] = useState([]);
   const [weddingInfo, setWeddingInfo] = useState(null);
   const [activeTab, setActiveTab] = useState('gifts');
+  const [pixGiftId, setPixGiftId] = useState(null);
+  const [donationVaquinha, setDonationVaquinha] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -48,8 +50,8 @@ export const GiftsAndVaquinhas = ({ guest }) => {
 
   return (
     <div className="min-h-screen bg-transparent py-16 px-6 relative overflow-hidden">
-      
       <div className="max-w-6xl mx-auto relative z-10">
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -61,7 +63,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
             Obrigado por confirmar, {guest.name.split(' ')[0]}!
           </h1>
           <p className="font-sans text-lg text-slate-700 max-w-2xl mx-auto">
-            Se desejar, você pode nos presentear com um dos itens abaixo ou contribuir com nossas vaquinhas
+            Se desejar, você pode nos presentear com um dos itens abaixo ou contribuir com nossas vaquinhas, qualquer valor já ajuda e muito o casal!
           </p>
         </motion.div>
 
@@ -115,11 +117,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                 >
                   {gift.imageUrl && (
                     <div className="aspect-video bg-wedding-stone overflow-hidden">
-                      <img
-                        src={gift.imageUrl}
-                        alt={gift.name}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={gift.imageUrl} alt={gift.name} className="w-full h-full object-cover" />
                     </div>
                   )}
                   <div className="p-6">
@@ -130,13 +128,38 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                     {gift.price && (
                       <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>
                     )}
-                    <button
-                      onClick={() => handleClaimGift(gift.id)}
-                      data-testid={`claim-gift-button-${gift.id}`}
-                      className="w-full bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 font-serif transition-all"
-                    >
-                      Presentear
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleClaimGift(gift.id)}
+                        data-testid={`claim-gift-button-${gift.id}`}
+                        className="flex-1 bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 font-serif transition-all"
+                      >
+                        Presentear
+                      </button>
+                      <button
+                        onClick={() => setPixGiftId(pixGiftId === gift.id ? null : gift.id)}
+                        className="flex-1 bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 font-serif transition-all"
+                      >
+                        Doar valor via PIX
+                      </button>
+                    </div>
+
+                    {pixGiftId === gift.id && weddingInfo?.pixKey && (
+                      <div className="mt-4 bg-wedding-cream rounded-lg p-4">
+                        {weddingInfo.qrCodeUrl && (
+                          <div className="text-center mb-3">
+                            <img src={weddingInfo.qrCodeUrl} alt="QR Code PIX" className="w-36 h-36 mx-auto" />
+                          </div>
+                        )}
+                        <p className="text-sm text-slate-500 mb-1 flex items-center gap-2">
+                          <QrCode className="w-4 h-4" />
+                          Chave PIX:
+                        </p>
+                        <p className="font-mono text-wedding-blue bg-white px-3 py-2 rounded text-sm break-all">
+                          {weddingInfo.pixKey}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               ))
@@ -188,16 +211,21 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                     </div>
                   </div>
 
+                  {/* Contribuir Button */}
+                  <button
+                    onClick={() => setDonationVaquinha(vaquinha)}
+                    className="w-full bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-lg py-3 font-serif transition-all shadow-lg mb-4"
+                  >
+                    <Heart className="w-4 h-4 inline mr-2" />
+                    Contribuir
+                  </button>
+
                   {/* PIX Info */}
                   {(vaquinha.pixKey || vaquinha.qrCodeUrl) && (
                     <div className="bg-wedding-cream rounded-lg p-4">
                       {vaquinha.qrCodeUrl && (
                         <div className="text-center mb-4">
-                          <img
-                            src={vaquinha.qrCodeUrl}
-                            alt="QR Code PIX"
-                            className="w-48 h-48 mx-auto"
-                          />
+                          <img src={vaquinha.qrCodeUrl} alt="QR Code PIX" className="w-48 h-48 mx-auto" />
                         </div>
                       )}
                       {vaquinha.pixKey && (
@@ -231,15 +259,10 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                 <p className="text-slate-600 mb-6">
                   Você também pode fazer uma doação geral para nos ajudar!
                 </p>
-
                 <div className="bg-wedding-cream rounded-lg p-4">
                   {weddingInfo.qrCodeUrl && (
                     <div className="text-center mb-4">
-                      <img
-                        src={weddingInfo.qrCodeUrl}
-                        alt="QR Code PIX"
-                        className="w-48 h-48 mx-auto"
-                      />
+                      <img src={weddingInfo.qrCodeUrl} alt="QR Code PIX" className="w-48 h-48 mx-auto" />
                     </div>
                   )}
                   <div>
@@ -257,6 +280,14 @@ export const GiftsAndVaquinhas = ({ guest }) => {
           </motion.div>
         )}
       </div>
+
+      {/* Donation Modal */}
+      <DonationModal
+        vaquinha={donationVaquinha}
+        isOpen={!!donationVaquinha}
+        onClose={() => setDonationVaquinha(null)}
+        onDonationComplete={fetchData}
+      />
     </div>
   );
 };
