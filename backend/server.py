@@ -279,7 +279,7 @@ async def update_vaquinha(vaquinha_id: str, vaquinha_input: VaquinhaCreate, admi
         {"id": vaquinha_id},
         {"$set": vaquinha_input.model_dump()}
     )
-    if result.matched_count == 0:frontend/src
+    if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Vaquinha não encontrada")
     return {"message": "Vaquinha atualizada com sucesso"}
 
