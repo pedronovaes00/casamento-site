@@ -43,9 +43,9 @@ db = client[os.environ['DB_NAME']]
 
 # JWT Config
 cloudinary.config(
-    cloud_name="Root",
-    api_key="874766372298938",
-    api_secret="0b-z4vM-e_5dmjJQLPXpXIrxHbE"
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET')
 )
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'wedding-secret-key-2024')
@@ -215,6 +215,13 @@ async def get_guests(admin: dict = Depends(verify_admin_token)):
             guest['createdAt'] = datetime.fromisoformat(guest['createdAt'])
     
     return guests
+
+@api_router.delete("/guests/{guest_id}")
+async def delete_guest(guest_id: str, admin: dict = Depends(verify_admin_token)):
+    result = await db.guests.delete_one({"id": guest_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Convidado não encontrado")
+    return {"message": "Convidado deletado com sucesso"}
 
 # ============ GIFT ROUTES ============
 

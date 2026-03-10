@@ -29,6 +29,8 @@ export const GuestsList = () => {
     }
   };
 
+  
+
   const toggleSelect = (id) => setSelected(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   const toggleSelectAll = () => setSelected(selected.length === guests.length ? [] : guests.map(g => g.id));
 

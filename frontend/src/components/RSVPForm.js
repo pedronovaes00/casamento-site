@@ -90,7 +90,7 @@ export const RSVPForm = ({ onComplete }) => {
           <div className="text-center">
             <p className="font-serif text-sm text-slate-500 uppercase tracking-widest">
               {step === 1 && 'Suas Informações'}
-              {step === 2 && 'Acompanhantes'}
+              {step === 2 && ''}
             </p>
           </div>
         </div>
@@ -267,8 +267,9 @@ export const RSVPForm = ({ onComplete }) => {
               <div className="mt-10 flex justify-between">
                 <button
                   onClick={() => setStep(1)}
+                  disabled={isSubmitting}
                   data-testid="rsvp-back-step-2"
-                  className="border border-wedding-gold text-wedding-goldDim hover:bg-wedding-cream rounded-full px-8 py-3 font-serif transition-all inline-flex items-center gap-2"
+                  className="border border-wedding-gold text-wedding-goldDim hover:bg-wedding-cream rounded-full px-8 py-3 font-serif transition-all inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ArrowLeft className="w-5 h-5" />
                   Voltar
