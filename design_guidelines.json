@@ -1,4 +1,4 @@
-{
+grep -r "emergentintegrations" backend/ --include="*.py"{
   "project_name": "Wedding Invitation & Management App",
   "design_philosophy": {
     "persona": "E1: The Anti-AI Designer",
