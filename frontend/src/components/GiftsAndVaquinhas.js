@@ -137,7 +137,10 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                         Presentear
                       </button>
                       <button
-                        onClick={() => setPixGiftId(pixGiftId === gift.id ? null : gift.id)}
+                        onClick={() =>{
+                            console.log('pixGiftId:', pixGiftId, 'gift.id:', gift.id, 'weddingInfo:', weddingInfo);
+    setPixGiftId(pixGiftId === gift.id ? null : gift.id);
+                          setPixGiftId(pixGiftId === gift.id ? null : gift.id);}}
                         className="flex-1 bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 font-serif transition-all"
                       >
                         Doar valor via PIX
