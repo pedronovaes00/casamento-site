@@ -1,145 +1,369 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Users, Mail, Phone, MessageSquare, Trash2, CheckSquare, Square } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Users, Plus, Trash2, Edit2, Check, X, Bell, ChevronDown, ChevronUp } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Button } from '../ui/button';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-export const GuestsList = () => {
-  const [guests, setGuests] = useState([]);
+export const GuestsList = ({ onNotifCount }) => {
+  const [grupos, setGrupos] = useState([]);
+  const [notificacoes, setNotificacoes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState([]);
-  const [deleting, setDeleting] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState('grupos'); // 'grupos' | 'notificacoes'
+  const [expandido, setExpandido] = useState(null);
 
-  useEffect(() => { fetchGuests(); }, []);
+  // Dialog de criar/editar
+  const [showDialog, setShowDialog] = useState(false);
+  const [editando, setEditando] = useState(null);
+  const [form, setForm] = useState({ nomeGrupo: '', membros: [''] });
 
-  const fetchGuests = async () => {
+  useEffect(() => { fetchAll(); }, []);
+
+  const fetchAll = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await axios.get(`${API}/guests`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setGuests(response.data);
-    } catch (error) {
-      toast.error('Erro ao carregar convidados');
+      const headers = { Authorization: `Bearer ${token}` };
+      const [gruposRes, notifRes] = await Promise.all([
+        axios.get(`${API}/grupos`, { headers }),
+        axios.get(`${API}/admin/notificacoes`, { headers })
+      ]);
+      setGrupos(gruposRes.data);
+      setNotificacoes(notifRes.data);
+      onNotifCount?.(notifRes.data.length);
+    } catch {
+      toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
   };
 
-  
+  // ---- Grupos ----
+  const abrirCriar = () => {
+    setEditando(null);
+    setForm({ nomeGrupo: '', membros: [''] });
+    setShowDialog(true);
+  };
 
-  const toggleSelect = (id) => setSelected(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
-  const toggleSelectAll = () => setSelected(selected.length === guests.length ? [] : guests.map(g => g.id));
+  const abrirEditar = (grupo) => {
+    setEditando(grupo);
+    setForm({ nomeGrupo: grupo.nomeGrupo, membros: grupo.membros.map(m => m.nome) });
+    setShowDialog(true);
+  };
 
-  const handleDeleteSelected = async () => {
-    if (!window.confirm(`Excluir ${selected.length} convidado(s)?`)) return;
-    setDeleting(true);
+  const addMembroField = () => setForm(prev => ({ ...prev, membros: [...prev.membros, ''] }));
+  const removeMembroField = (i) => setForm(prev => ({ ...prev, membros: prev.membros.filter((_, idx) => idx !== i) }));
+  const updateMembro = (i, val) => setForm(prev => {
+    const m = [...prev.membros];
+    m[i] = val;
+    return { ...prev, membros: m };
+  });
+
+  const handleSalvar = async () => {
+    if (!form.nomeGrupo.trim()) { toast.error('Informe o nome do grupo'); return; }
+    const membrosValidos = form.membros.filter(m => m.trim());
+    if (membrosValidos.length === 0) { toast.error('Adicione pelo menos um membro'); return; }
+
     try {
       const token = localStorage.getItem('adminToken');
-      await Promise.all(selected.map(id => axios.delete(`${API}/guests/${id}`, { headers: { Authorization: `Bearer ${token}` } })));
-      toast.success(`${selected.length} convidado(s) excluído(s)!`);
-      setSelected([]);
-      fetchGuests();
-    } catch (error) {
-      toast.error('Erro ao excluir convidados');
-    } finally {
-      setDeleting(false);
+      const headers = { Authorization: `Bearer ${token}` };
+      const payload = { nomeGrupo: form.nomeGrupo, membros: membrosValidos };
+
+      if (editando) {
+        await axios.put(`${API}/grupos/${editando.id}`, payload, { headers });
+        toast.success('Grupo atualizado!');
+      } else {
+        await axios.post(`${API}/grupos`, payload, { headers });
+        toast.success('Grupo criado!');
+      }
+      setShowDialog(false);
+      fetchAll();
+    } catch {
+      toast.error('Erro ao salvar grupo');
     }
   };
 
-  const handleDeleteOne = async (id) => {
-    if (!window.confirm('Excluir este convidado?')) return;
+  const handleDeletar = async (id) => {
+    if (!window.confirm('Excluir este grupo?')) return;
     try {
       const token = localStorage.getItem('adminToken');
-      await axios.delete(`${API}/guests/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success('Convidado excluído!');
-      fetchGuests();
-    } catch (error) {
-      toast.error('Erro ao excluir convidado');
+      await axios.delete(`${API}/grupos/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Grupo excluído!');
+      fetchAll();
+    } catch {
+      toast.error('Erro ao excluir grupo');
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-wedding-blue"></div></div>;
+  // ---- Notificações ----
+  const handleResolverNotif = async (id) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      await axios.delete(`${API}/admin/notificacoes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Notificação resolvida!');
+      fetchAll();
+    } catch {
+      toast.error('Erro ao resolver notificação');
+    }
+  };
 
-  const totalGuests = guests.reduce((sum, guest) => sum + 1 + guest.companions.length, 0);
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-wedding-blue" />
+    </div>
+  );
+
+  const totalConfirmados = grupos.reduce((sum, g) => sum + g.membros.filter(m => m.confirmado).length, 0);
+  const totalConvidados = grupos.reduce((sum, g) => sum + g.membros.length, 0);
 
   return (
     <div>
-      <div className="mb-6 flex items-start justify-between">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="font-serif text-3xl text-wedding-blue mb-2">Convidados Confirmados</h1>
-          <p className="text-slate-600">Total de {guests.length} confirmações ({totalGuests} pessoas)</p>
+          <h1 className="font-serif text-3xl text-wedding-blue mb-1">Convidados</h1>
+          <p className="text-slate-600">
+            {totalConfirmados} confirmados de {totalConvidados} convidados em {grupos.length} grupos
+          </p>
         </div>
+        <button
+          onClick={abrirCriar}
+          className="bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-lg px-5 py-3 font-serif transition-all shadow-lg inline-flex items-center gap-2"
+        >
+          <Plus className="w-5 h-5" />
+          Novo Grupo
+        </button>
       </div>
 
-      {guests.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-          <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-          <p className="text-slate-500">Nenhum convidado confirmou presença ainda</p>
-        </div>
-      ) : (
-        <>
-          <div className="bg-white rounded-xl shadow p-4 mb-4 flex items-center justify-between">
-            <button onClick={toggleSelectAll} className="flex items-center gap-2 text-sm text-slate-600 hover:text-wedding-blue transition-colors">
-              {selected.length === guests.length ? <CheckSquare className="w-5 h-5 text-wedding-blue" /> : <Square className="w-5 h-5" />}
-              {selected.length === guests.length ? 'Desmarcar todos' : 'Selecionar todos'}
-            </button>
-            {selected.length > 0 && (
-              <button onClick={handleDeleteSelected} disabled={deleting} className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50">
-                <Trash2 className="w-4 h-4" />
-                {deleting ? 'Excluindo...' : `Excluir ${selected.length} selecionado(s)`}
-              </button>
-            )}
-          </div>
+      {/* Abas */}
+      <div className="flex gap-3 mb-6">
+        <button
+          onClick={() => setAbaAtiva('grupos')}
+          className={`px-5 py-2.5 rounded-full font-serif transition-all ${abaAtiva === 'grupos' ? 'bg-wedding-blue text-white shadow' : 'bg-white text-wedding-blue hover:bg-slate-50'}`}
+        >
+          <Users className="w-4 h-4 inline mr-2" />
+          Grupos
+        </button>
+        <button
+          onClick={() => setAbaAtiva('notificacoes')}
+          className={`px-5 py-2.5 rounded-full font-serif transition-all relative ${abaAtiva === 'notificacoes' ? 'bg-wedding-blue text-white shadow' : 'bg-white text-wedding-blue hover:bg-slate-50'}`}
+        >
+          <Bell className="w-4 h-4 inline mr-2" />
+          Não encontrados
+          {notificacoes.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+              {notificacoes.length}
+            </span>
+          )}
+        </button>
+      </div>
 
-          <div className="grid gap-4">
-            {guests.map((guest, index) => (
-              <motion.div key={guest.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}
-                className={`bg-white rounded-xl shadow-lg p-6 border-2 transition-colors ${selected.includes(guest.id) ? 'border-wedding-blue' : 'border-transparent'}`}
-                data-testid={`guest-item-${guest.id}`}>
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-start gap-3">
-                    <button onClick={() => toggleSelect(guest.id)} className="mt-1">
-                      {selected.includes(guest.id) ? <CheckSquare className="w-5 h-5 text-wedding-blue" /> : <Square className="w-5 h-5 text-slate-300 hover:text-wedding-blue transition-colors" />}
-                    </button>
-                    <div>
-                      <h3 className="font-serif text-xl text-wedding-blue mb-1">{guest.name}</h3>
-                      <span className="text-xs bg-wedding-blue/10 text-wedding-blue px-2 py-1 rounded-full inline-block">{guest.guestType}</span>
-                      <div className="space-y-1 mt-2">
-                        {guest.email && <p className="text-sm text-slate-600 flex items-center gap-2"><Mail className="w-4 h-4" />{guest.email}</p>}
-                        {guest.phone && <p className="text-sm text-slate-600 flex items-center gap-2"><Phone className="w-4 h-4" />{guest.phone}</p>}
+      {/* Aba Grupos */}
+      {abaAtiva === 'grupos' && (
+        <div className="space-y-4">
+          {grupos.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+              <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-500 mb-4">Nenhum grupo cadastrado ainda</p>
+              <button onClick={abrirCriar} className="bg-wedding-blue text-white rounded-lg px-5 py-2 font-serif">
+                Criar primeiro grupo
+              </button>
+            </div>
+          ) : (
+            grupos.map((grupo, index) => {
+              const confirmados = grupo.membros.filter(m => m.confirmado);
+              const pendentes = grupo.membros.filter(m => !m.confirmado);
+              const aberto = expandido === grupo.id;
+
+              return (
+                <motion.div
+                  key={grupo.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="bg-white rounded-xl shadow-lg overflow-hidden"
+                >
+                  <div className="p-5 flex items-center justify-between">
+                    <button
+                      onClick={() => setExpandido(aberto ? null : grupo.id)}
+                      className="flex items-center gap-3 flex-1 text-left"
+                    >
+                      <div className="w-10 h-10 bg-wedding-blue/10 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Users className="w-5 h-5 text-wedding-blue" />
                       </div>
+                      <div>
+                        <p className="font-serif text-lg text-wedding-blue">{grupo.nomeGrupo}</p>
+                        <p className="text-sm text-slate-500">
+                          {grupo.membros.length} membro{grupo.membros.length !== 1 ? 's' : ''}
+                          {confirmados.length > 0 && (
+                            <span className="ml-2 text-green-600 font-semibold">
+                              · {confirmados.length} confirmado{confirmados.length !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      {aberto ? <ChevronUp className="w-4 h-4 text-slate-400 ml-2" /> : <ChevronDown className="w-4 h-4 text-slate-400 ml-2" />}
+                    </button>
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={() => abrirEditar(grupo)}
+                        className="p-2 text-wedding-blue hover:bg-wedding-blue/10 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeletar(grupo.id)}
+                        className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs bg-wedding-sageLight text-wedding-sage px-3 py-1 rounded-full">{1 + guest.companions.length} pessoa{guest.companions.length > 0 ? 's' : ''}</span>
-                    <button onClick={() => handleDeleteOne(guest.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </div>
-                {guest.companions.length > 0 && (
-                  <div className="mb-4 pl-8 border-l-2 border-wedding-goldLight">
-                    <p className="text-sm font-semibold text-slate-500 mb-2">Acompanhantes:</p>
-                    <ul className="space-y-1">
-                      {guest.companions.map((companion, idx) => (
-                        <li key={idx} className="text-sm text-slate-600">{companion.name}{companion.ageGroup && ` (${companion.ageGroup})`}{companion.relation && ` - ${companion.relation}`}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {guest.message && (
-                  <div className="bg-wedding-cream rounded-lg p-4 ml-8">
-                    <p className="text-sm font-semibold text-slate-500 mb-1 flex items-center gap-2"><MessageSquare className="w-4 h-4" />Mensagem:</p>
-                    <p className="text-sm text-slate-700 italic">"{guest.message}"</p>
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </div>
-        </>
+
+                  <AnimatePresence>
+                    {aberto && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="border-t border-slate-100 px-5 py-4"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {grupo.membros.map((membro) => (
+                            <div
+                              key={membro.nome}
+                              className={`flex items-center gap-3 rounded-lg px-4 py-2.5 ${
+                                membro.confirmado ? 'bg-green-50' : 'bg-slate-50'
+                              }`}
+                            >
+                              <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                membro.confirmado ? 'bg-green-500' : 'bg-slate-200'
+                              }`}>
+                                {membro.confirmado && <Check className="w-3 h-3 text-white" />}
+                              </div>
+                              <span className={`font-sans text-sm ${membro.confirmado ? 'text-green-700 font-semibold' : 'text-slate-600'}`}>
+                                {membro.nome}
+                              </span>
+                              {membro.confirmado && (
+                                <span className="ml-auto text-xs text-green-500">Confirmado</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {pendentes.length > 0 && (
+                          <p className="text-xs text-slate-400 mt-3">
+                            {pendentes.length} pendente{pendentes.length !== 1 ? 's' : ''}: {pendentes.map(m => m.nome).join(', ')}
+                          </p>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })
+          )}
+        </div>
       )}
+
+      {/* Aba Notificações */}
+      {abaAtiva === 'notificacoes' && (
+        <div className="space-y-3">
+          {notificacoes.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+              <Bell className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-500">Nenhuma notificação pendente</p>
+            </div>
+          ) : (
+            notificacoes.map((notif, index) => (
+              <motion.div
+                key={notif.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="bg-white rounded-xl shadow p-5 flex items-center justify-between border-l-4 border-amber-400"
+              >
+                <div>
+                  <p className="font-serif text-lg text-slate-800">
+                    "<span className="text-wedding-blue">{notif.nomeDigitado}</span>" não encontrado
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {new Date(notif.createdAt).toLocaleString('pt-BR')}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleResolverNotif(notif.id)}
+                  className="ml-4 p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                  title="Marcar como resolvido"
+                >
+                  <Check className="w-5 h-5" />
+                </button>
+              </motion.div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Dialog Criar/Editar Grupo */}
+      <Dialog open={showDialog} onOpenChange={(open) => { setShowDialog(open); if (!open) setEditando(null); }}>
+        <DialogContent className="bg-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-2xl text-wedding-blue">
+              {editando ? 'Editar Grupo' : 'Novo Grupo Familiar'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">Nome do Grupo</label>
+              <input
+                type="text"
+                value={form.nomeGrupo}
+                onChange={(e) => setForm(prev => ({ ...prev, nomeGrupo: e.target.value }))}
+                placeholder="Ex: Família Silva"
+                className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2.5 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-2">Membros</label>
+              <div className="space-y-2">
+                {form.membros.map((m, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={m}
+                      onChange={(e) => updateMembro(i, e.target.value)}
+                      placeholder={`Nome do membro ${i + 1}`}
+                      className="flex-1 border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2 focus:outline-none"
+                    />
+                    {form.membros.length > 1 && (
+                      <button
+                        onClick={() => removeMembroField(i)}
+                        className="p-2 text-red-400 hover:bg-red-50 rounded-lg"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={addMembroField}
+                className="mt-2 text-sm text-wedding-blue hover:underline flex items-center gap-1"
+              >
+                <Plus className="w-4 h-4" /> Adicionar membro
+              </button>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button onClick={() => setShowDialog(false)} variant="outline" className="flex-1">Cancelar</Button>
+              <Button onClick={handleSalvar} className="flex-1 bg-wedding-blue hover:bg-wedding-blueDark">
+                {editando ? 'Salvar' : 'Criar Grupo'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

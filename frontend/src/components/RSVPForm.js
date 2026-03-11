@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Trash2, ArrowRight, ArrowLeft, Send, Flower2 } from 'lucide-react';
+import { Search, ArrowRight, Send, Check, X, Users } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -8,56 +8,89 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export const RSVPForm = ({ onComplete }) => {
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    guestType: 'Amigo(a)',
-    companions: []
-  });
-  const [companionName, setCompanionName] = useState('');
-  const [companionAgeGroup, setCompanionAgeGroup] = useState('Adulto');
-  const [companionRelation, setCompanionRelation] = useState('Parente');
+  const [step, setStep] = useState(1); // 1: busca, 2: seleciona membros
+  const [busca, setBusca] = useState('');
+  const [resultados, setResultados] = useState([]);
+  const [buscando, setBuscando] = useState(false);
+  const [semResultado, setSemResultado] = useState(false);
+  const [grupoSelecionado, setGrupoSelecionado] = useState(null);
+  const [membrosSelecionados, setMembrosSelecionados] = useState([]);
+  const [mensagem, setMensagem] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const debounceRef = useRef(null);
 
-  const addCompanion = () => {
-    if (companionName.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        companions: [...prev.companions, { 
-          name: companionName, 
-          ageGroup: companionAgeGroup,
-          relation: companionRelation
-        }]
-      }));
-      setCompanionName('');
-      setCompanionAgeGroup('Adulto');
-      setCompanionRelation('Parente');
+  useEffect(() => {
+    if (busca.trim().length < 2) {
+      setResultados([]);
+      setSemResultado(false);
+      return;
+    }
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => buscar(busca), 400);
+  }, [busca]);
+
+  const buscar = async (termo) => {
+    setBuscando(true);
+    setSemResultado(false);
+    try {
+      const res = await axios.get(`${API}/grupos/buscar?nome=${encodeURIComponent(termo)}`);
+      setResultados(res.data);
+      if (res.data.length === 0) setSemResultado(true);
+    } catch {
+      toast.error('Erro ao buscar. Tente novamente.');
+    } finally {
+      setBuscando(false);
     }
   };
 
-  const removeCompanion = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      companions: prev.companions.filter((_, i) => i !== index)
-    }));
+  const handleNaoEncontrado = async () => {
+    try {
+      await axios.post(`${API}/grupos/nao-encontrado`, { nomeDigitado: busca });
+      toast.success('Avisamos os noivos! Aguarde a confirmação 💛');
+      setSemResultado(false);
+      setBusca('');
+    } catch {
+      toast.error('Erro ao enviar. Tente novamente.');
+    }
+  };
+
+  const selecionarGrupo = (grupo) => {
+    setGrupoSelecionado(grupo);
+    // Pré-seleciona todos os membros não confirmados ainda
+    const naConfirmados = grupo.membros
+      .filter(m => !m.confirmado)
+      .map(m => m.nome);
+    setMembrosSelecionados(naConfirmados.length > 0 ? naConfirmados : grupo.membros.map(m => m.nome));
+    setStep(2);
+  };
+
+  const toggleMembro = (nome) => {
+    setMembrosSelecionados(prev =>
+      prev.includes(nome) ? prev.filter(n => n !== nome) : [...prev, nome]
+    );
   };
 
   const handleSubmit = async () => {
-    if (!formData.name.trim()) {
-      toast.error('Por favor, informe seu nome');
+    if (membrosSelecionados.length === 0) {
+      toast.error('Selecione pelo menos uma pessoa para confirmar');
       return;
     }
-
     setIsSubmitting(true);
     try {
-      const response = await axios.post(`${API}/guests`, formData);
-      toast.success('Presença confirmada com sucesso!');
-      onComplete(response.data);
+      const res = await axios.post(`${API}/grupos/${grupoSelecionado.id}/confirmar`, {
+        membrosConfirmados: membrosSelecionados,
+        mensagem: mensagem || null
+      });
+      toast.success('Presença confirmada! 🎉');
+      // Monta objeto compatível com o que GiftsAndVaquinhas espera
+      onComplete({
+        id: grupoSelecionado.id,
+        name: membrosSelecionados[0],
+        nomeGrupo: grupoSelecionado.nomeGrupo,
+        confirmados: res.data.confirmados
+      });
     } catch (error) {
-      console.error('Erro ao confirmar presença:', error);
-      toast.error('Erro ao confirmar presença. Tente novamente.');
+      toast.error(error.response?.data?.detail || 'Erro ao confirmar. Tente novamente.');
     } finally {
       setIsSubmitting(false);
     }
@@ -66,221 +99,197 @@ export const RSVPForm = ({ onComplete }) => {
   return (
     <div className="min-h-screen bg-transparent py-16 px-6 relative overflow-hidden">
       <div className="max-w-2xl mx-auto relative z-10">
-        {/* Progress Indicator */}
+
+        {/* Progress */}
         <div className="mb-12">
-          <div className="flex justify-center items-center mb-3 max-w-md mx-auto">
+          <div className="flex justify-center items-center mb-3 max-w-xs mx-auto">
             {[1, 2].map((s) => (
               <div key={s} className="flex items-center">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-serif font-semibold transition-all duration-300 ${
-                    step >= s ? 'bg-wedding-blue text-white' : 'bg-wedding-stone text-slate-400'
-                  }`}
-                  data-testid={`step-indicator-${s}`}
-                >
-                  {s}
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-serif font-semibold transition-all duration-300 ${
+                  step >= s ? 'bg-wedding-blue text-white' : 'bg-wedding-stone text-slate-400'
+                }`}>
+                  {step > s ? <Check className="w-5 h-5" /> : s}
                 </div>
                 {s < 2 && (
-                  <div className={`w-64 h-1 mx-4 rounded transition-all duration-300 ${
+                  <div className={`w-32 h-1 mx-4 rounded transition-all duration-300 ${
                     step > s ? 'bg-wedding-blue' : 'bg-wedding-stone'
                   }`} />
                 )}
               </div>
             ))}
           </div>
-          <div className="text-center">
-            <p className="font-serif text-sm text-slate-500 uppercase tracking-widest">
-              {step === 1 && 'Suas Informações'}
-              {step === 2 && ''}
-            </p>
-          </div>
+          <p className="text-center font-serif text-sm text-slate-500 uppercase tracking-widest">
+            {step === 1 ? 'Buscar meu nome' : 'Confirmar presença'}
+          </p>
         </div>
 
         <AnimatePresence mode="wait">
-          {/* Step 1: Basic Info */}
+
+          {/* Step 1 — Busca */}
           {step === 1 && (
             <motion.div
               key="step1"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12 relative"
+              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12"
             >
-              <h2 className="font-serif text-3xl md:text-4xl text-slate-800 mb-8 text-center">
+              <h2 className="font-serif text-3xl md:text-4xl text-slate-800 mb-3 text-center">
                 Confirme sua presença
               </h2>
+              <p className="text-center text-slate-500 mb-10">
+                Digite seu nome para encontrar seu convite
+              </p>
 
-              <div className="space-y-6">
-                <div>
-                  <label className="block font-serif text-sm uppercase tracking-wider text-slate-500 mb-2">
-                    Nome Completo *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Seu nome"
-                    data-testid="guest-name-input"
-                    className="w-full bg-transparent border-b-2 border-wedding-goldLight focus:border-wedding-gold px-0 py-3 font-serif text-xl placeholder:text-slate-300 focus:outline-none transition-colors"
-                  />
-                </div>
+              <div className="relative mb-4">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Digite seu nome..."
+                  autoFocus
+                  className="w-full bg-white border-2 border-wedding-goldLight focus:border-wedding-gold rounded-xl pl-12 pr-4 py-4 font-serif text-xl placeholder:text-slate-300 focus:outline-none transition-colors"
+                />
+                {buscando && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <div className="animate-spin w-5 h-5 border-2 border-wedding-blue border-t-transparent rounded-full" />
+                  </div>
+                )}
+              </div>
 
-                <div>
-                  <label className="block font-serif text-sm uppercase tracking-wider text-slate-500 mb-2">
-                    Você é *
-                  </label>
-                  <select
-                    value={formData.guestType}
-                    onChange={(e) => setFormData(prev => ({ ...prev, guestType: e.target.value }))}
-                    data-testid="guest-type-select"
-                    className="w-full bg-white border-b-2 border-wedding-goldLight focus:border-wedding-gold px-0 py-3 font-serif text-lg focus:outline-none transition-colors cursor-pointer"
+              {/* Resultados */}
+              <AnimatePresence>
+                {resultados.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="space-y-3 mt-4"
                   >
-                    <option value="Amigo(a)">Amigo(a)</option>
-                    <option value="Parente">Parente</option>
-                  </select>
-                </div>
+                    <p className="text-sm text-slate-400 font-serif uppercase tracking-wider mb-2">
+                      Encontramos {resultados.length} resultado{resultados.length > 1 ? 's' : ''}:
+                    </p>
+                    {resultados.map((grupo) => (
+                      <motion.button
+                        key={grupo.id}
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        onClick={() => selecionarGrupo(grupo)}
+                        className="w-full bg-wedding-cream hover:bg-wedding-goldLight/30 border-2 border-wedding-goldLight hover:border-wedding-gold rounded-xl p-5 text-left transition-all group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-serif text-lg text-wedding-blue font-semibold">
+                              {grupo.nomeGrupo}
+                            </p>
+                            <p className="text-sm text-slate-500 mt-1 flex items-center gap-1">
+                              <Users className="w-3.5 h-3.5" />
+                              {grupo.membros.map(m => m.nome).join(', ')}
+                            </p>
+                          </div>
+                          <ArrowRight className="w-5 h-5 text-wedding-gold group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </motion.button>
+                    ))}
+                  </motion.div>
+                )}
 
-                <div>
-                  <label className="block font-serif text-sm uppercase tracking-wider text-slate-500 mb-2">
-                    E-mail
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="seu@email.com"
-                    data-testid="guest-email-input"
-                    className="w-full bg-transparent border-b-2 border-wedding-goldLight focus:border-wedding-gold px-0 py-3 font-sans text-lg placeholder:text-slate-300 focus:outline-none transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-serif text-sm uppercase tracking-wider text-slate-500 mb-2">
-                    Telefone
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                    placeholder="(00) 00000-0000"
-                    data-testid="guest-phone-input"
-                    className="w-full bg-transparent border-b-2 border-wedding-goldLight focus:border-wedding-gold px-0 py-3 font-sans text-lg placeholder:text-slate-300 focus:outline-none transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-10 flex justify-end">
-                <button
-                  onClick={() => formData.name.trim() ? setStep(2) : toast.error('Por favor, informe seu nome')}
-                  data-testid="rsvp-next-step-1"
-                  className="bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-full px-8 py-3 font-serif transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 inline-flex items-center gap-2"
-                >
-                  Próximo
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </div>
+                {/* Não encontrado */}
+                {semResultado && !buscando && busca.trim().length >= 2 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="mt-4 bg-rose-50 border border-rose-200 rounded-xl p-6 text-center"
+                  >
+                    <X className="w-8 h-8 text-rose-400 mx-auto mb-2" />
+                    <p className="font-serif text-lg text-slate-700 mb-1">
+                      Não encontramos "<strong>{busca}</strong>"
+                    </p>
+                    <p className="text-sm text-slate-500 mb-4">
+                      Tente um nome diferente ou avise os noivos que você não está na lista.
+                    </p>
+                    <button
+                      onClick={handleNaoEncontrado}
+                      className="bg-rose-500 text-white hover:bg-rose-600 rounded-full px-6 py-2 font-serif text-sm transition-all"
+                    >
+                      Avisar os noivos 💌
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
 
-          {/* Step 2: Companions */}
-          {step === 2 && (
+          {/* Step 2 — Seleciona membros */}
+          {step === 2 && grupoSelecionado && (
             <motion.div
               key="step2"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12 relative"
+              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12"
             >
-              <h2 className="font-serif text-3xl md:text-4xl text-slate-800 mb-4 text-center">
-                Acompanhantes
+              <h2 className="font-serif text-3xl md:text-4xl text-slate-800 mb-2 text-center">
+                {grupoSelecionado.nomeGrupo}
               </h2>
-              <p className="text-center text-slate-600 mb-8">
-                Você vai levar algum acompanhante?
+              <p className="text-center text-slate-500 mb-8">
+                Selecione quem vai comparecer
               </p>
 
-              <div className="space-y-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <input
-                    type="text"
-                    value={companionName}
-                    onChange={(e) => setCompanionName(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && addCompanion()}
-                    placeholder="Nome"
-                    data-testid="companion-name-input"
-                    className="bg-white/50 border border-wedding-goldLight focus:border-wedding-gold rounded-lg px-4 py-3 font-sans placeholder:text-slate-300 focus:outline-none transition-colors"
-                  />
-                  <select
-                    value={companionAgeGroup}
-                    onChange={(e) => setCompanionAgeGroup(e.target.value)}
-                    data-testid="companion-age-group-select"
-                    className="bg-white/50 border border-wedding-goldLight focus:border-wedding-gold rounded-lg px-4 py-3 font-sans focus:outline-none transition-colors cursor-pointer"
-                  >
-                    <option value="Adulto">Adulto</option>
-                    <option value="Criança">Criança</option>
-                  </select>
-                  <select
-                    value={companionRelation}
-                    onChange={(e) => setCompanionRelation(e.target.value)}
-                    data-testid="companion-relation-select"
-                    className="bg-white/50 border border-wedding-goldLight focus:border-wedding-gold rounded-lg px-4 py-3 font-sans focus:outline-none transition-colors cursor-pointer"
-                  >
-                    <option value="Parente">Parente</option>
-                    <option value="Filho(a)">Filho(a)</option>
-                    <option value="Parceiro(a)">Parceiro(a)</option>
-                  </select>
-                </div>
-                <button
-                  onClick={addCompanion}
-                  data-testid="add-companion-button"
-                  className="w-full bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg px-4 py-3 transition-colors inline-flex items-center justify-center gap-2"
-                >
-                  <UserPlus className="w-5 h-5" />
-                  Adicionar Acompanhante
-                </button>
+              <div className="space-y-3 mb-8">
+                {grupoSelecionado.membros.map((membro) => {
+                  const selecionado = membrosSelecionados.includes(membro.nome);
+                  return (
+                    <button
+                      key={membro.nome}
+                      onClick={() => toggleMembro(membro.nome)}
+                      className={`w-full flex items-center justify-between rounded-xl px-5 py-4 border-2 transition-all ${
+                        selecionado
+                          ? 'bg-wedding-blue/10 border-wedding-blue text-wedding-blue'
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-wedding-goldLight'
+                      }`}
+                    >
+                      <span className="font-serif text-lg">{membro.nome}</span>
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                        selecionado ? 'bg-wedding-blue border-wedding-blue' : 'border-slate-300'
+                      }`}>
+                        {selecionado && <Check className="w-3.5 h-3.5 text-white" />}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
 
-              {formData.companions.length > 0 && (
-                <div className="space-y-2 mb-8" data-testid="companions-list">
-                  {formData.companions.map((companion, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex items-center justify-between bg-wedding-sageLight rounded-lg px-4 py-3"
-                    >
-                      <span className="font-sans text-slate-700">
-                        {companion.name}
-                        {companion.ageGroup && ` (${companion.ageGroup})`}
-                        {companion.relation && ` - ${companion.relation}`}
-                      </span>
-                      <button
-                        onClick={() => removeCompanion(index)}
-                        data-testid={`remove-companion-${index}`}
-                        className="text-wedding-roseDust hover:text-red-600 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
+              {/* Mensagem opcional */}
+              <div className="mb-8">
+                <label className="block font-serif text-sm uppercase tracking-wider text-slate-400 mb-2">
+                  Mensagem para os noivos (opcional)
+                </label>
+                <textarea
+                  value={mensagem}
+                  onChange={(e) => setMensagem(e.target.value)}
+                  placeholder="Deixe um recadinho carinhoso..."
+                  rows={3}
+                  className="w-full bg-wedding-cream border-2 border-wedding-goldLight focus:border-wedding-gold rounded-xl px-4 py-3 font-sans text-slate-700 placeholder:text-slate-300 focus:outline-none transition-colors resize-none"
+                />
+              </div>
 
-              <div className="mt-10 flex justify-between">
+              <div className="flex justify-between">
                 <button
-                  onClick={() => setStep(1)}
+                  onClick={() => { setStep(1); setGrupoSelecionado(null); }}
                   disabled={isSubmitting}
-                  data-testid="rsvp-back-step-2"
                   className="border border-wedding-gold text-wedding-goldDim hover:bg-wedding-cream rounded-full px-8 py-3 font-serif transition-all inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <ArrowLeft className="w-5 h-5" />
                   Voltar
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  data-testid="rsvp-submit-button"
-                  className="bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-full px-8 py-3 font-serif transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSubmitting || membrosSelecionados.length === 0}
+                  className="bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-full px-8 py-3 font-serif transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? 'Enviando...' : 'Confirmar Presença'}
+                  {isSubmitting ? 'Confirmando...' : 'Confirmar Presença'}
                   <Send className="w-5 h-5" />
                 </button>
               </div>

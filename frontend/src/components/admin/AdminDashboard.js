@@ -11,12 +11,11 @@ export const AdminDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('guests');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
-    if (!token) {
-      navigate('/admin');
-    }
+    if (!token) navigate('/admin');
   }, [navigate]);
 
   const handleLogout = () => {
@@ -26,7 +25,7 @@ export const AdminDashboard = () => {
   };
 
   const menuItems = [
-    { id: 'guests', label: 'Convidados', icon: Users },
+    { id: 'guests', label: 'Convidados', icon: Users, badge: notifCount },
     { id: 'gifts', label: 'Presentes', icon: Gift },
     { id: 'vaquinhas', label: 'Vaquinhas', icon: Heart },
     { id: 'settings', label: 'Configurações', icon: Settings },
@@ -34,7 +33,6 @@ export const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50/50">
-      {/* Mobile Menu Button */}
       <div className="lg:hidden fixed top-4 left-4 z-50">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -45,12 +43,7 @@ export const AdminDashboard = () => {
         </button>
       </div>
 
-      {/* Sidebar */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-xl transform transition-transform duration-300 lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-xl transform transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b border-slate-200">
           <h2 className="font-serif text-2xl text-wedding-blue">Painel Admin</h2>
           <p className="text-sm text-slate-500 mt-1">Gestão do Casamento</p>
@@ -62,19 +55,19 @@ export const AdminDashboard = () => {
             return (
               <button
                 key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setSidebarOpen(false);
-                }}
+                onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
                 data-testid={`admin-tab-${item.id}`}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all ${
-                  activeTab === item.id
-                    ? 'bg-wedding-blue text-white shadow-lg'
-                    : 'text-slate-600 hover:bg-slate-100'
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-all relative ${
+                  activeTab === item.id ? 'bg-wedding-blue text-white shadow-lg' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 <Icon className="w-5 h-5" />
                 <span className="font-sans">{item.label}</span>
+                {item.badge > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -92,22 +85,17 @@ export const AdminDashboard = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="lg:ml-64 min-h-screen">
         <div className="p-6 lg:p-8">
-          {activeTab === 'guests' && <GuestsList />}
+          {activeTab === 'guests' && <GuestsList onNotifCount={setNotifCount} />}
           {activeTab === 'gifts' && <GiftsManagement />}
           {activeTab === 'vaquinhas' && <VaquinhasManagement />}
           {activeTab === 'settings' && <WeddingSettings />}
         </div>
       </main>
 
-      {/* Overlay for mobile */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
     </div>
   );

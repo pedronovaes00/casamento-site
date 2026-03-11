@@ -21,6 +21,8 @@ import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
 from io import BytesIO
 import base64
+import unicodedata
+import re
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -52,6 +54,13 @@ security = HTTPBearer()
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
+def normalize(text: str) -> str:
+    """Remove acentos e coloca em minúsculo para busca tolerante."""
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', text.lower())
+        if unicodedata.category(c) != 'Mn'
+    )
+
 @api_router.get("/uploads/{filename}")
 async def serve_upload(filename: str):
     file_path = UPLOAD_DIR / filename
@@ -64,17 +73,41 @@ async def serve_upload(filename: str):
 
 # ============ MODELS ============
 
-class Companion(BaseModel):
-    name: str
-    ageGroup: str = "Adulto"
-    relation: str = "Parente"
+class MembroGrupo(BaseModel):
+    nome: str
+    confirmado: bool = False
+
+class GrupoFamiliarCreate(BaseModel):
+    nomeGrupo: str
+    membros: List[str]  # só os nomes
+
+class GrupoFamiliar(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    nomeGrupo: str
+    membros: List[MembroGrupo] = []
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ConfirmarGrupoRequest(BaseModel):
+    membrosConfirmados: List[str]  # nomes dos membros que vão comparecer
+    mensagem: Optional[str] = None
+
+class NaoEncontradoCreate(BaseModel):
+    nomeDigitado: str
+
+class NaoEncontrado(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    nomeDigitado: str
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    resolvido: bool = False
 
 class GuestCreate(BaseModel):
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
     guestType: str
-    companions: List[Companion] = []
+    companions: List[dict] = []
 
 class Guest(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -83,7 +116,7 @@ class Guest(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     guestType: Optional[str] = "Amigo(a)"
-    companions: List[Companion] = []
+    companions: List[dict] = []
     confirmed: bool = True
     selectedGifts: List[str] = []
     message: Optional[str] = None
@@ -105,7 +138,7 @@ class Gift(BaseModel):
     isTaken: bool = False
     takenBy: Optional[str] = None
     takenByName: Optional[str] = None
-    claimType: Optional[str] = None  # "physical" ou "pix"
+    claimType: Optional[str] = None
 
 class VaquinhaCreate(BaseModel):
     title: str
@@ -179,16 +212,121 @@ async def admin_login(login_data: AdminLogin):
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas")
 
-# ============ GUEST ROUTES ============
+# ============ GRUPOS FAMILIARES ROUTES ============
 
-@api_router.post("/guests", response_model=Guest)
-async def create_guest(guest_input: GuestCreate):
-    guest_dict = guest_input.model_dump()
-    guest_obj = Guest(**guest_dict)
-    doc = guest_obj.model_dump()
+@api_router.get("/grupos", response_model=List[GrupoFamiliar])
+async def get_grupos(admin: dict = Depends(verify_admin_token)):
+    grupos = await db.grupos.find({}, {"_id": 0}).to_list(1000)
+    for g in grupos:
+        if isinstance(g.get('createdAt'), str):
+            g['createdAt'] = datetime.fromisoformat(g['createdAt'])
+    return grupos
+
+@api_router.post("/grupos", response_model=GrupoFamiliar)
+async def create_grupo(grupo_input: GrupoFamiliarCreate, admin: dict = Depends(verify_admin_token)):
+    membros = [MembroGrupo(nome=n) for n in grupo_input.membros]
+    grupo = GrupoFamiliar(nomeGrupo=grupo_input.nomeGrupo, membros=membros)
+    doc = grupo.model_dump()
     doc['createdAt'] = doc['createdAt'].isoformat()
-    await db.guests.insert_one(doc)
-    return guest_obj
+    await db.grupos.insert_one(doc)
+    return grupo
+
+@api_router.put("/grupos/{grupo_id}", response_model=GrupoFamiliar)
+async def update_grupo(grupo_id: str, grupo_input: GrupoFamiliarCreate, admin: dict = Depends(verify_admin_token)):
+    grupo = await db.grupos.find_one({"id": grupo_id}, {"_id": 0})
+    if not grupo:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    # Preserva confirmações já existentes ao editar
+    confirmados = {m['nome']: m['confirmado'] for m in grupo.get('membros', [])}
+    novos_membros = [
+        {"nome": n, "confirmado": confirmados.get(n, False)}
+        for n in grupo_input.membros
+    ]
+    await db.grupos.update_one(
+        {"id": grupo_id},
+        {"$set": {"nomeGrupo": grupo_input.nomeGrupo, "membros": novos_membros}}
+    )
+    grupo_atualizado = await db.grupos.find_one({"id": grupo_id}, {"_id": 0})
+    if isinstance(grupo_atualizado.get('createdAt'), str):
+        grupo_atualizado['createdAt'] = datetime.fromisoformat(grupo_atualizado['createdAt'])
+    return GrupoFamiliar(**grupo_atualizado)
+
+@api_router.delete("/grupos/{grupo_id}")
+async def delete_grupo(grupo_id: str, admin: dict = Depends(verify_admin_token)):
+    result = await db.grupos.delete_one({"id": grupo_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    return {"message": "Grupo deletado com sucesso"}
+
+@api_router.get("/grupos/buscar")
+async def buscar_grupo(nome: str):
+    """Busca pública — sem auth. Retorna grupos que têm membro com nome parecido."""
+    termo = normalize(nome)
+    todos = await db.grupos.find({}, {"_id": 0}).to_list(1000)
+    resultados = []
+    for grupo in todos:
+        for membro in grupo.get('membros', []):
+            if termo in normalize(membro['nome']):
+                if isinstance(grupo.get('createdAt'), str):
+                    grupo['createdAt'] = datetime.fromisoformat(grupo['createdAt'])
+                resultados.append(grupo)
+                break
+    return resultados
+
+@api_router.post("/grupos/{grupo_id}/confirmar")
+async def confirmar_grupo(grupo_id: str, body: ConfirmarGrupoRequest):
+    """Confirma presença de membros específicos do grupo."""
+    grupo = await db.grupos.find_one({"id": grupo_id}, {"_id": 0})
+    if not grupo:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    nomes_confirmados = [normalize(n) for n in body.membrosConfirmados]
+    novos_membros = []
+    for m in grupo['membros']:
+        confirmado = normalize(m['nome']) in nomes_confirmados
+        novos_membros.append({"nome": m['nome'], "confirmado": confirmado or m.get('confirmado', False)})
+    update_data = {"membros": novos_membros}
+    if body.mensagem:
+        update_data["mensagem"] = body.mensagem
+    await db.grupos.update_one({"id": grupo_id}, {"$set": update_data})
+    # Retorna os membros confirmados para o frontend usar na tela de agradecimento
+    confirmados_nomes = [m['nome'] for m in novos_membros if m['confirmado']]
+    return {
+        "message": "Presença confirmada com sucesso!",
+        "grupoId": grupo_id,
+        "nomeGrupo": grupo['nomeGrupo'],
+        "confirmados": confirmados_nomes
+    }
+
+# ============ NOTIFICAÇÕES — NOME NÃO ENCONTRADO ============
+
+@api_router.post("/grupos/nao-encontrado")
+async def registrar_nao_encontrado(body: NaoEncontradoCreate):
+    """Registra quando alguém busca um nome que não está na lista."""
+    doc = NaoEncontrado(nomeDigitado=body.nomeDigitado)
+    d = doc.model_dump()
+    d['createdAt'] = d['createdAt'].isoformat()
+    await db.nao_encontrados.insert_one(d)
+    return {"message": "Registrado"}
+
+@api_router.get("/admin/notificacoes")
+async def get_notificacoes(admin: dict = Depends(verify_admin_token)):
+    docs = await db.nao_encontrados.find({"resolvido": False}, {"_id": 0}).to_list(1000)
+    for d in docs:
+        if isinstance(d.get('createdAt'), str):
+            d['createdAt'] = datetime.fromisoformat(d['createdAt'])
+    return docs
+
+@api_router.delete("/admin/notificacoes/{notif_id}")
+async def resolver_notificacao(notif_id: str, admin: dict = Depends(verify_admin_token)):
+    result = await db.nao_encontrados.update_one(
+        {"id": notif_id},
+        {"$set": {"resolvido": True}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Notificação não encontrada")
+    return {"message": "Notificação resolvida"}
+
+# ============ GUEST ROUTES (legado — mantido para histórico) ============
 
 @api_router.get("/guests", response_model=List[Guest])
 async def get_guests(admin: dict = Depends(verify_admin_token)):
@@ -334,8 +472,7 @@ async def generate_pix_qr(pix_key: str, amount: float, name: str = "Casal"):
 async def get_wedding_info():
     info = await db.wedding_info.find_one({"id": "wedding-info"}, {"_id": 0})
     if not info:
-        default_info = WeddingInfo()
-        return default_info
+        return WeddingInfo()
     return WeddingInfo(**info)
 
 @api_router.put("/wedding-info", response_model=WeddingInfo)
