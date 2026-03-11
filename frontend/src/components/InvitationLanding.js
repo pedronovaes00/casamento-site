@@ -124,12 +124,11 @@ export const InvitationLanding = ({ guest, onContinue }) => {
           transition={{ delay: 1 }}
           className="mt-12 text-center"
         >
-          <p className="text-sm text-slate-500">
-            Confirmado como <span className="font-semibold text-wedding-blue">{guest.guestType}</span>
-            {guest.companions.length > 0 && (
-              <span> com {guest.companions.length} acompanhante{guest.companions.length > 1 ? 's' : ''}</span>
-            )}
-          </p>
+         <p className="text-sm text-slate-500">
+  Confirmado: <span className="font-semibold text-wedding-blue">
+    {guest.confirmados ? guest.confirmados.join(', ') : guest.name}
+  </span>
+</p>
         </motion.div>
       </div>
     </div>

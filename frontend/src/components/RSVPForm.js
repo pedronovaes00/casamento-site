@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ArrowRight, Send, Check, X, Users } from 'lucide-react';
+import { Search, ArrowRight, Send, Check, X, Users, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -8,7 +8,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export const RSVPForm = ({ onComplete }) => {
-  const [step, setStep] = useState(1); // 1: busca, 2: seleciona membros
+  const [step, setStep] = useState(1);
   const [busca, setBusca] = useState('');
   const [resultados, setResultados] = useState([]);
   const [buscando, setBuscando] = useState(false);
@@ -56,11 +56,9 @@ export const RSVPForm = ({ onComplete }) => {
 
   const selecionarGrupo = (grupo) => {
     setGrupoSelecionado(grupo);
-    // Pré-seleciona todos os membros não confirmados ainda
-    const naConfirmados = grupo.membros
-      .filter(m => !m.confirmado)
-      .map(m => m.nome);
-    setMembrosSelecionados(naConfirmados.length > 0 ? naConfirmados : grupo.membros.map(m => m.nome));
+    // Pré-seleciona quem já confirmou
+    const jaConfirmados = grupo.membros.filter(m => m.confirmado).map(m => m.nome);
+    setMembrosSelecionados(jaConfirmados.length > 0 ? jaConfirmados : []);
     setStep(2);
   };
 
@@ -70,22 +68,21 @@ export const RSVPForm = ({ onComplete }) => {
     );
   };
 
+  const jaTemConfirmados = grupoSelecionado?.membros.some(m => m.confirmado);
+
   const handleSubmit = async () => {
-    if (membrosSelecionados.length === 0) {
-      toast.error('Selecione pelo menos uma pessoa para confirmar');
-      return;
-    }
     setIsSubmitting(true);
     try {
-      const res = await axios.post(`${API}/grupos/${grupoSelecionado.id}/confirmar`, {
+      // PUT atualiza (substitui), POST adiciona
+      const method = jaTemConfirmados ? 'put' : 'post';
+      const res = await axios[method](`${API}/grupos/${grupoSelecionado.id}/confirmar`, {
         membrosConfirmados: membrosSelecionados,
         mensagem: mensagem || null
       });
-      toast.success('Presença confirmada! 🎉');
-      // Monta objeto compatível com o que GiftsAndVaquinhas espera
+      toast.success(jaTemConfirmados ? 'Presença atualizada! 🎉' : 'Presença confirmada! 🎉');
       onComplete({
         id: grupoSelecionado.id,
-        name: membrosSelecionados[0],
+        name: membrosSelecionados[0] || grupoSelecionado.nomeGrupo,
         nomeGrupo: grupoSelecionado.nomeGrupo,
         confirmados: res.data.confirmados
       });
@@ -158,7 +155,6 @@ export const RSVPForm = ({ onComplete }) => {
                 )}
               </div>
 
-              {/* Resultados */}
               <AnimatePresence>
                 {resultados.length > 0 && (
                   <motion.div
@@ -168,34 +164,41 @@ export const RSVPForm = ({ onComplete }) => {
                     className="space-y-3 mt-4"
                   >
                     <p className="text-sm text-slate-400 font-serif uppercase tracking-wider mb-2">
-                      Encontramos {resultados.length} resultado{resultados.length > 1 ? 's' : ''}:
+                      {resultados.length} resultado{resultados.length > 1 ? 's' : ''} encontrado{resultados.length > 1 ? 's' : ''}:
                     </p>
-                    {resultados.map((grupo) => (
-                      <motion.button
-                        key={grupo.id}
-                        initial={{ opacity: 0, y: -6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        onClick={() => selecionarGrupo(grupo)}
-                        className="w-full bg-wedding-cream hover:bg-wedding-goldLight/30 border-2 border-wedding-goldLight hover:border-wedding-gold rounded-xl p-5 text-left transition-all group"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-serif text-lg text-wedding-blue font-semibold">
-                              {grupo.nomeGrupo}
-                            </p>
-                            <p className="text-sm text-slate-500 mt-1 flex items-center gap-1">
-                              <Users className="w-3.5 h-3.5" />
-                              {grupo.membros.map(m => m.nome).join(', ')}
-                            </p>
+                    {resultados.map((grupo) => {
+                      const confirmados = grupo.membros.filter(m => m.confirmado);
+                      return (
+                        <motion.button
+                          key={grupo.id}
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          onClick={() => selecionarGrupo(grupo)}
+                          className="w-full bg-wedding-cream hover:bg-wedding-goldLight/30 border-2 border-wedding-goldLight hover:border-wedding-gold rounded-xl p-5 text-left transition-all group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="font-serif text-lg text-wedding-blue font-semibold">
+                                {grupo.nomeGrupo}
+                              </p>
+                              <p className="text-sm text-slate-500 mt-1 flex items-center gap-1">
+                                <Users className="w-3.5 h-3.5" />
+                                {grupo.membros.map(m => m.nome).join(', ')}
+                              </p>
+                              {confirmados.length > 0 && (
+                                <p className="text-xs text-green-600 mt-1 font-semibold">
+                                  ✓ {confirmados.map(m => m.nome).join(', ')} já confirmado{confirmados.length > 1 ? 's' : ''}
+                                </p>
+                              )}
+                            </div>
+                            <ArrowRight className="w-5 h-5 text-wedding-gold group-hover:translate-x-1 transition-transform ml-3" />
                           </div>
-                          <ArrowRight className="w-5 h-5 text-wedding-gold group-hover:translate-x-1 transition-transform" />
-                        </div>
-                      </motion.button>
-                    ))}
+                        </motion.button>
+                      );
+                    })}
                   </motion.div>
                 )}
 
-                {/* Não encontrado */}
                 {semResultado && !buscando && busca.trim().length >= 2 && (
                   <motion.div
                     initial={{ opacity: 0, y: -8 }}
@@ -208,7 +211,7 @@ export const RSVPForm = ({ onComplete }) => {
                       Não encontramos "<strong>{busca}</strong>"
                     </p>
                     <p className="text-sm text-slate-500 mb-4">
-                      Tente um nome diferente ou avise os noivos que você não está na lista.
+                      Tente um nome diferente ou avise os noivos.
                     </p>
                     <button
                       onClick={handleNaoEncontrado}
@@ -234,13 +237,21 @@ export const RSVPForm = ({ onComplete }) => {
               <h2 className="font-serif text-3xl md:text-4xl text-slate-800 mb-2 text-center">
                 {grupoSelecionado.nomeGrupo}
               </h2>
-              <p className="text-center text-slate-500 mb-8">
-                Selecione quem vai comparecer
+              <p className="text-center text-slate-500 mb-2">
+                {jaTemConfirmados ? 'Atualize quem vai comparecer' : 'Selecione quem vai comparecer'}
               </p>
+              {jaTemConfirmados && (
+                <p className="text-center text-xs text-green-600 mb-6 flex items-center justify-center gap-1">
+                  <Check className="w-3.5 h-3.5" />
+                  Você já confirmou presença anteriormente
+                </p>
+              )}
+              {!jaTemConfirmados && <div className="mb-6" />}
 
               <div className="space-y-3 mb-8">
                 {grupoSelecionado.membros.map((membro) => {
                   const selecionado = membrosSelecionados.includes(membro.nome);
+                  const jaConfirmado = membro.confirmado;
                   return (
                     <button
                       key={membro.nome}
@@ -251,7 +262,19 @@ export const RSVPForm = ({ onComplete }) => {
                           : 'bg-white border-slate-200 text-slate-600 hover:border-wedding-goldLight'
                       }`}
                     >
-                      <span className="font-serif text-lg">{membro.nome}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-serif text-lg">{membro.nome}</span>
+                        {jaConfirmado && !selecionado && (
+                          <span className="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">
+                            Desconfirmando...
+                          </span>
+                        )}
+                        {jaConfirmado && selecionado && (
+                          <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
+                            Já confirmado
+                          </span>
+                        )}
+                      </div>
                       <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
                         selecionado ? 'bg-wedding-blue border-wedding-blue' : 'border-slate-300'
                       }`}>
@@ -286,11 +309,11 @@ export const RSVPForm = ({ onComplete }) => {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={isSubmitting || membrosSelecionados.length === 0}
+                  disabled={isSubmitting}
                   className="bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-full px-8 py-3 font-serif transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? 'Confirmando...' : 'Confirmar Presença'}
-                  <Send className="w-5 h-5" />
+                  {isSubmitting ? 'Salvando...' : jaTemConfirmados ? 'Atualizar Presença' : 'Confirmar Presença'}
+                  {jaTemConfirmados ? <RefreshCw className="w-5 h-5" /> : <Send className="w-5 h-5" />}
                 </button>
               </div>
             </motion.div>
