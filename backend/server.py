@@ -297,6 +297,29 @@ async def confirmar_grupo(grupo_id: str, body: ConfirmarGrupoRequest):
         "confirmados": confirmados_nomes
     }
 
+@api_router.put("/grupos/{grupo_id}/confirmar")
+async def atualizar_confirmacao(grupo_id: str, body: ConfirmarGrupoRequest):
+    """Atualiza presença — substitui completamente quem está confirmado."""
+    grupo = await db.grupos.find_one({"id": grupo_id}, {"_id": 0})
+    if not grupo:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado")
+    nomes_confirmados = [normalize(n) for n in body.membrosConfirmados]
+    novos_membros = []
+    for m in grupo['membros']:
+        confirmado = normalize(m['nome']) in nomes_confirmados
+        novos_membros.append({"nome": m['nome'], "confirmado": confirmado})
+    update_data = {"membros": novos_membros}
+    if body.mensagem:
+        update_data["mensagem"] = body.mensagem
+    await db.grupos.update_one({"id": grupo_id}, {"$set": update_data})
+    confirmados_nomes = [m['nome'] for m in novos_membros if m['confirmado']]
+    return {
+        "message": "Presença atualizada com sucesso!",
+        "grupoId": grupo_id,
+        "nomeGrupo": grupo['nomeGrupo'],
+        "confirmados": confirmados_nomes
+    }
+
 # ============ NOTIFICAÇÕES — NOME NÃO ENCONTRADO ============
 
 @api_router.post("/grupos/nao-encontrado")
