@@ -21,7 +21,8 @@ export const GuestsList = ({ onNotifCount }) => {
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState({ nomeGrupo: '', membros: [''] });
 
-  useEffect(() => { fetchAll(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
     try {
