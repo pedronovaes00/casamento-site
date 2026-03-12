@@ -278,8 +278,8 @@ export const GiftsAndVaquinhas = ({ guest }) => {
         onClose={() => setConfirmModal({ isOpen: false, giftId: null, type: null })}
         onConfirm={handleConfirm}
         title="Confirmar Presente"
-        message="Você confirma que vai presentear o casal com este item?"
-        confirmLabel="Sim, vou presentear!"
+        message="Você quer reservar este presente para dar ao casal?"
+        confirmLabel="Sim, tenho certeza, vou presentear!"
         icon={<Gift className="w-8 h-8 text-wedding-sage" />}
       />
 
@@ -343,11 +343,12 @@ export const GiftsAndVaquinhas = ({ guest }) => {
 
       {/* Donation Modal */}
       <DonationModal
-        vaquinha={donationVaquinha}
-        isOpen={!!donationVaquinha}
-        onClose={() => setDonationVaquinha(null)}
-        onDonationComplete={fetchData}
-      />
+  vaquinha={donationVaquinha}
+  isOpen={!!donationVaquinha}
+  onClose={() => setDonationVaquinha(null)}
+  onDonationComplete={fetchData}
+  guest={guest}
+/>
     </div>
   );
 };
