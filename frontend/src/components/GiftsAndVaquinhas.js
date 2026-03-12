@@ -62,14 +62,12 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   const [activeTab, setActiveTab] = useState('gifts');
   const [donationVaquinha, setDonationVaquinha] = useState(null);
 
-  // Estados do modal de confirmação
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     giftId: null,
-    type: null, // "physical" ou "pix"
+    type: null,
   });
 
-  // Estado do modal PIX (abre após confirmar doação via pix)
   const [pixModal, setPixModal] = useState(false);
 
   useEffect(() => { fetchData(); }, []);
@@ -94,7 +92,6 @@ export const GiftsAndVaquinhas = ({ guest }) => {
       await axios.put(`${API}/gifts/${giftId}/claim?guest_id=${guest.id}&guest_name=${encodeURIComponent(guest.name)}&claim_type=${claimType}`);
       toast.success(claimType === 'pix' ? 'Presente reservado! Agora faça o PIX 💛' : 'Presente reservado com sucesso!');
       fetchData();
-      // Se for pix, abre o modal do pix depois de reservar
       if (claimType === 'pix') {
         setPixModal(true);
       }
@@ -167,7 +164,16 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                   )}
                   <div className="p-6">
                     <h3 className="font-serif text-xl text-wedding-blue mb-2">{gift.name}</h3>
-                    {gift.description && <p className="text-sm text-slate-600 mb-4">{gift.description}</p>}
+                    {gift.description && (
+                      <a
+                        href={gift.description}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-sm text-wedding-blue hover:underline mb-4"
+                      >
+                        🔗 Ver produto
+                      </a>
+                    )}
                     {gift.price && <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>}
                     <div className="flex gap-2">
                       <button
@@ -211,14 +217,18 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                   {vaquinha.description && <p className="text-slate-600 mb-6">{vaquinha.description}</p>}
                   <div className="mb-6">
                     <div className="flex justify-between text-sm mb-2">
-                      <span className="text-slate-500">Meta: R$ {vaquinha.goal.toFixed(2)}</span>
+                      <span className="text-slate-500">Meta: <span className="font-semibold text-slate-700">R$ {vaquinha.goal.toFixed(2)}</span></span>
                       <span className="text-wedding-blue font-semibold">{((vaquinha.currentAmount / vaquinha.goal) * 100).toFixed(0)}%</span>
                     </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-2">
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{ width: `${Math.min((vaquinha.currentAmount / vaquinha.goal) * 100, 100)}%`, background: 'linear-gradient(135deg, #E5D4B3 0%, #E5D4B3 50%, rgb(255, 235, 146) 100%)' }}
                       />
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-400">Arrecadado:</span>
+                      <span className="font-semibold text-wedding-gold">R$ {vaquinha.currentAmount.toFixed(2)}</span>
                     </div>
                   </div>
                   <button
@@ -289,7 +299,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
         onClose={() => setConfirmModal({ isOpen: false, giftId: null, type: null })}
         onConfirm={handleConfirm}
         title="Confirmar Doação via PIX"
-        message="Você confirma que vai realizar a doação via PIX para este presente?"
+        message="Você quer realizar a doação via PIX para este presente?"
         confirmLabel="Sim, vou fazer o PIX!"
         icon={<QrCode className="w-8 h-8 text-wedding-gold" />}
       />
@@ -343,12 +353,12 @@ export const GiftsAndVaquinhas = ({ guest }) => {
 
       {/* Donation Modal */}
       <DonationModal
-  vaquinha={donationVaquinha}
-  isOpen={!!donationVaquinha}
-  onClose={() => setDonationVaquinha(null)}
-  onDonationComplete={fetchData}
-  guest={guest}
-/>
+        vaquinha={donationVaquinha}
+        isOpen={!!donationVaquinha}
+        onClose={() => setDonationVaquinha(null)}
+        onDonationComplete={fetchData}
+        guest={guest}
+      />
     </div>
   );
 };

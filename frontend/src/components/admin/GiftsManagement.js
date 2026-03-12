@@ -155,7 +155,14 @@ export const GiftsManagement = () => {
                   )}
                 </div>
                 {gift.description && (
-                  <p className="text-sm text-slate-600 mb-3">{gift.description}</p>
+                  <a
+                    href={gift.description}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-wedding-blue hover:underline mb-3"
+                  >
+                    🔗 Ver produto
+                  </a>
                 )}
                 {gift.price && (
                   <p className="text-wedding-gold font-semibold mb-3">{gift.price}</p>
@@ -237,14 +244,14 @@ export const GiftsManagement = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Descrição</label>
-              <textarea
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Link do Produto</label>
+              <input
+                type="url"
                 value={newGift.description}
                 onChange={(e) => setNewGift(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Descrição do presente"
+                placeholder="https://www.amazon.com.br/..."
                 data-testid="new-gift-description-input"
-                rows={3}
-                className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2 focus:outline-none resize-none"
+                className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2 focus:outline-none"
               />
             </div>
             <div>
@@ -279,5 +286,3 @@ export const GiftsManagement = () => {
     </div>
   );
 };
-
-export default GiftsManagement;
