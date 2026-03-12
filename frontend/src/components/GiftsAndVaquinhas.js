@@ -217,7 +217,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                     <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min((vaquinha.currentAmount / vaquinha.goal) * 100, 100)}%`, background: 'linear-gradient(135deg, #E5D4B3 0%, #d9c87b 50%, rgb(255, 220, 64) 100%)' }}
+                        style={{ width: `${Math.min((vaquinha.currentAmount / vaquinha.goal) * 100, 100)}%`, background: 'linear-gradient(135deg, #E5D4B3 0%, #E5D4B3 50%, rgb(255, 235, 146) 100%)' }}
                       />
                     </div>
                   </div>
@@ -254,7 +254,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                 data-testid="general-donation-card"
               >
                 <h3 className="font-serif text-2xl text-wedding-blue mb-4">Doação Geral para o Casal</h3>
-                <p className="text-slate-600 mb-6">Você também pode fazer uma doação geral para nos ajudar!</p>
+                <p className="text-slate-600 mb-6">Você também pode fazer uma doação geral para nos ajudar, com o valor que puder!</p>
                 <div className="bg-wedding-cream rounded-lg p-4">
                   {weddingInfo.qrCodeUrl && (
                     <div className="text-center mb-4">
