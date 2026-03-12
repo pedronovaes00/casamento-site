@@ -217,7 +217,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                     <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min((vaquinha.currentAmount / vaquinha.goal) * 100, 100)}%`, background: 'linear-gradient(135deg, #C5A065 0%, #E5D4B3 50%, #C5A065 100%)' }}
+                        style={{ width: `${Math.min((vaquinha.currentAmount / vaquinha.goal) * 100, 100)}%`, background: 'linear-gradient(135deg, #E5D4B3 0%, #d9c87b 50%, rgb(255, 220, 64) 100%)' }}
                       />
                     </div>
                   </div>
