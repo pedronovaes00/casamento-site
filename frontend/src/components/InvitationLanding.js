@@ -125,7 +125,7 @@ export const InvitationLanding = ({ guest }) => {
               )}
               {weddingInfo?.location && (
                 <div className="flex items-start gap-4">
-                  <MapPin className="w-6 h-6 text-black flex-shrink-0 mt-1" />
+                  <MapPin className="w-6 h-6 text-red flex-shrink-0 mt-1" />
                   <div>
                     <p className="font-serif text-sm uppercase tracking-widest text-slate-400 mb-1">Local</p>
                     <p className="font-sans text-lg text-slate-700">{weddingInfo.location}</p>
