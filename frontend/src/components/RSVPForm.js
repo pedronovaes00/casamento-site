@@ -15,6 +15,7 @@ export const RSVPForm = ({ onComplete }) => {
   const [semResultado, setSemResultado] = useState(false);
   const [grupoSelecionado, setGrupoSelecionado] = useState(null);
   const [membrosSelecionados, setMembrosSelecionados] = useState([]);
+  const [nomeBuscado, setNomeBuscado] = useState('');
   const [mensagem, setMensagem] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const debounceRef = useRef(null);
@@ -30,6 +31,13 @@ export const RSVPForm = ({ onComplete }) => {
   }, [busca]);
 
   const normalizar = (str) => str.trim().replace(/\s+/g, " ");
+
+  const normalizarComparacao = (str = '') =>
+    str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
 
   const buscar = async (termo) => {
     setBuscando(true);
@@ -58,6 +66,7 @@ export const RSVPForm = ({ onComplete }) => {
 
   const selecionarGrupo = (grupo) => {
     setGrupoSelecionado(grupo);
+    setNomeBuscado(busca);
     // Pré-seleciona quem já confirmou
     const jaConfirmados = grupo.membros.filter(m => m.confirmado).map(m => m.nome);
     setMembrosSelecionados(jaConfirmados.length > 0 ? jaConfirmados : []);
@@ -82,9 +91,18 @@ export const RSVPForm = ({ onComplete }) => {
         mensagem: mensagem || null
       });
       toast.success(jaTemConfirmados ? 'Presença atualizada! 🎉' : 'Presença confirmada! 🎉');
+
+      const buscaNormalizada = normalizarComparacao(nomeBuscado);
+      const membroBuscado = grupoSelecionado.membros.find((membro) =>
+        normalizarComparacao(membro.nome).includes(buscaNormalizada)
+      );
+
+      const nomeAgradecimento =
+        membroBuscado?.nome || membrosSelecionados[0] || grupoSelecionado.nomeGrupo;
+
       onComplete({
         id: grupoSelecionado.id,
-        name: membrosSelecionados[0] || grupoSelecionado.nomeGrupo,
+        name: nomeAgradecimento,
         nomeGrupo: grupoSelecionado.nomeGrupo,
         confirmados: res.data.confirmados
       });
