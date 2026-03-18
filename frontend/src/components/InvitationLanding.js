@@ -143,7 +143,7 @@ export const InvitationLanding = ({ guest }) => {
             className="text-center mb-8"
           >
             <p className="text-sm text-slate-500">
-              Confirmado: <span className="font-semibold text-wedding-blue">
+              Confirmado: <span className="font-semibold text-wedding-black">
                 {guest.confirmados ? guest.confirmados.join(', ') : guest.name}
               </span>
             </p>
