@@ -80,7 +80,7 @@ export const InvitationLanding = ({ guest }) => {
               animate={{ y: [0, 8, 0] }}
               transition={{ repeat: Infinity, duration: 1.5 }}
             >
-              <ChevronDown className="w-8 h-8 text-wedding-gold" />
+              <ChevronDown className="w-8 h-8 text-white" />
             </motion.div>
           </motion.div>
 
