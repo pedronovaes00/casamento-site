@@ -3,15 +3,14 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import './App.css';
 
-// Components
 import PaperOverlay from './components/PaperOverlay';
+import { FloralDecoration } from './components/FloralDecoration';
 import InvitationLanding from './components/InvitationLanding';
 import RSVPForm from './components/RSVPForm';
 import GiftsAndVaquinhas from './components/GiftsAndVaquinhas';
 import AdminLogin from './components/admin/AdminLogin';
 import AdminDashboard from './components/admin/AdminDashboard';
 
-// Public Flow Component
 const PublicFlow = () => {
   const [currentStep, setCurrentStep] = useState('rsvp');
   const [confirmedGuest, setConfirmedGuest] = useState(null);
@@ -21,38 +20,27 @@ const PublicFlow = () => {
     setCurrentStep('confirmation');
   };
 
-  const handleContinueToGifts = () => {
-    setCurrentStep('gifts');
-  };
-
   return (
     <>
       <PaperOverlay />
+      <FloralDecoration />
       <div className="relative z-10">
         {currentStep === 'rsvp' && (
           <RSVPForm onComplete={handleRSVPComplete} />
         )}
         {currentStep === 'confirmation' && confirmedGuest && (
-          <InvitationLanding guest={confirmedGuest} onContinue={handleContinueToGifts} />
-        )}
-        {currentStep === 'gifts' && confirmedGuest && (
-          <GiftsAndVaquinhas guest={confirmedGuest} />
+          <InvitationLanding guest={confirmedGuest} />
         )}
       </div>
     </>
   );
 };
 
-// Admin Flow Component
 const AdminFlow = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const handleLoginSuccess = (token) => {
-    setIsAuthenticated(true);
-  };
-
   if (!isAuthenticated && !localStorage.getItem('adminToken')) {
-    return <AdminLogin onLoginSuccess={handleLoginSuccess} />;
+    return <AdminLogin onLoginSuccess={() => setIsAuthenticated(true)} />;
   }
 
   return <AdminDashboard />;
