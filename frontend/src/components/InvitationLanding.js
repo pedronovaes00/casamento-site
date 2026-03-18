@@ -12,6 +12,13 @@ export const InvitationLanding = ({ guest }) => {
   const giftsRef = useRef(null);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      giftsRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     const fetchWeddingInfo = async () => {
       try {
         const response = await axios.get(`${API}/wedding-info`);
@@ -21,6 +28,13 @@ export const InvitationLanding = ({ guest }) => {
       }
     };
     fetchWeddingInfo();
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      giftsRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 2000);
+    return () => clearTimeout(timer);
   }, []);
 
   const scrollToGifts = () => {
