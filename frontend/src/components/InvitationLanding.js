@@ -65,6 +65,25 @@ export const InvitationLanding = ({ guest }) => {
             </p>
           </motion.div>
 
+{/* Botão scroll para presentes */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.2 }}
+            className="flex flex-col items-center gap-2 cursor-pointer"
+            onClick={scrollToGifts}
+          >
+            <p className="font-serif text-wedding-gold text-base uppercase tracking-widest">
+              Ver presentes & vaquinhas
+            </p>
+            <motion.div
+              animate={{ y: [0, 8, 0] }}
+              transition={{ repeat: Infinity, duration: 1.5 }}
+            >
+              <ChevronDown className="w-8 h-8 text-wedding-gold" />
+            </motion.div>
+          </motion.div>
+
           {/* Card com info do casamento */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -114,25 +133,6 @@ export const InvitationLanding = ({ guest }) => {
                 {guest.confirmados ? guest.confirmados.join(', ') : guest.name}
               </span>
             </p>
-          </motion.div>
-
-          {/* Botão scroll para presentes */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.2 }}
-            className="flex flex-col items-center gap-2 cursor-pointer"
-            onClick={scrollToGifts}
-          >
-            <p className="font-serif text-slate-500 text-sm uppercase tracking-widest">
-              Ver presentes & vaquinhas
-            </p>
-            <motion.div
-              animate={{ y: [0, 8, 0] }}
-              transition={{ repeat: Infinity, duration: 1.5 }}
-            >
-              <ChevronDown className="w-8 h-8 text-wedding-gold" />
-            </motion.div>
           </motion.div>
         </div>
       </div>
