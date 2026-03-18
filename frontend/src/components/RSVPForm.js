@@ -26,7 +26,7 @@ export const RSVPForm = ({ onComplete }) => {
       return;
     }
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => buscar(normalizar(busca)(/\s+/g, " ")), 400);
+    debounceRef.current = setTimeout(() => buscar(normalizar(busca)), 400);
   }, [busca]);
 
   const normalizar = (str) => str.trim().replace(/\s+/g, " ");
