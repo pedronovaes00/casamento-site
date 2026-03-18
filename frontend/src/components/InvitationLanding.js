@@ -47,7 +47,7 @@ export const InvitationLanding = ({ guest }) => {
               className="inline-block mb-6 relative"
             >
               <Heart className="w-16 h-16 text-wedding-roseDust fill-wedding-roseDust" />
-              <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-wedding-gold animate-pulse" />
+              <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-white animate-pulse" />
             </motion.div>
 
             <h1 className="font-script text-4xl md:text-7xl text-slate-800 mb-6 drop-shadow-md">
@@ -73,7 +73,7 @@ export const InvitationLanding = ({ guest }) => {
             className="flex flex-col items-center gap-2 cursor-pointer"
             onClick={scrollToGifts}
           >
-            <p className="font-serif text-wedding-gold text-base uppercase tracking-widest">
+            <p className="font-serif text-white text-base uppercase tracking-widest">
               Ver presentes & vaquinhas
             </p>
             <motion.div
@@ -100,7 +100,7 @@ export const InvitationLanding = ({ guest }) => {
             <div className="space-y-6">
               {weddingInfo?.date && (
                 <div className="flex items-start gap-4">
-                  <Calendar className="w-6 h-6 text-wedding-gold flex-shrink-0 mt-1" />
+                  <Calendar className="w-6 h-6 text-white flex-shrink-0 mt-1" />
                   <div>
                     <p className="font-serif text-sm uppercase tracking-widest text-slate-400 mb-1">Data</p>
                     <p className="font-sans text-lg text-slate-700">
@@ -111,7 +111,7 @@ export const InvitationLanding = ({ guest }) => {
               )}
               {weddingInfo?.location && (
                 <div className="flex items-start gap-4">
-                  <MapPin className="w-6 h-6 text-wedding-gold flex-shrink-0 mt-1" />
+                  <MapPin className="w-6 h-6 text-white flex-shrink-0 mt-1" />
                   <div>
                     <p className="font-serif text-sm uppercase tracking-widest text-slate-400 mb-1">Local</p>
                     <p className="font-sans text-lg text-slate-700">{weddingInfo.location}</p>
