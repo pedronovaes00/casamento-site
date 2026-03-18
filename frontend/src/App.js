@@ -4,7 +4,6 @@ import { Toaster } from 'sonner';
 import './App.css';
 
 import PaperOverlay from './components/PaperOverlay';
-import { FloralDecoration } from './components/FloralDecoration';
 import InvitationLanding from './components/InvitationLanding';
 import RSVPForm from './components/RSVPForm';
 import GiftsAndVaquinhas from './components/GiftsAndVaquinhas';
@@ -23,7 +22,6 @@ const PublicFlow = () => {
   return (
     <>
       <PaperOverlay />
-      <FloralDecoration />
       <div className="relative z-10">
         {currentStep === 'rsvp' && (
           <RSVPForm onComplete={handleRSVPComplete} />
