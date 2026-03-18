@@ -26,8 +26,10 @@ export const RSVPForm = ({ onComplete }) => {
       return;
     }
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => buscar(busca), 400);
+    debounceRef.current = setTimeout(() => buscar(normalizar(busca)(/\s+/g, " ")), 400);
   }, [busca]);
+
+  const normalizar = (str) => str.trim().replace(/\s+/g, " ");
 
   const buscar = async (termo) => {
     setBuscando(true);
