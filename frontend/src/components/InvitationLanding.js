@@ -27,6 +27,14 @@ export const InvitationLanding = ({ guest }) => {
     giftsRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  useEffect(() => {
+    const scrollTimer = setTimeout(() => {
+      giftsRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 2000);
+
+    return () => clearTimeout(scrollTimer);
+  }, []);
+
   const firstName = guest.name.split(' ')[0];
 
   return (
