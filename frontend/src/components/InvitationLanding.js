@@ -12,6 +12,13 @@ export const InvitationLanding = ({ guest }) => {
   const giftsRef = useRef(null);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      giftsRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     const fetchWeddingInfo = async () => {
       try {
         const response = await axios.get(`${API}/wedding-info`);
@@ -21,6 +28,13 @@ export const InvitationLanding = ({ guest }) => {
       }
     };
     fetchWeddingInfo();
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      giftsRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 2000);
+    return () => clearTimeout(timer);
   }, []);
 
   const scrollToGifts = () => {
@@ -55,7 +69,7 @@ export const InvitationLanding = ({ guest }) => {
               className="inline-block mb-6 relative"
             >
               <Heart className="w-16 h-16 text-wedding-roseDust fill-wedding-roseDust" />
-              <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-wedding-gold animate-pulse" />
+              <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-white animate-pulse" />
             </motion.div>
 
             <h1 className="font-script text-4xl md:text-7xl text-slate-800 mb-6 drop-shadow-md">
@@ -71,6 +85,25 @@ export const InvitationLanding = ({ guest }) => {
             <p className="font-sans text-lg text-slate-600 max-w-2xl mx-auto">
               Estamos muito felizes em compartilhar este momento especial com você
             </p>
+          </motion.div>
+
+{/* Botão scroll para presentes */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.2 }}
+            className="flex flex-col items-center gap-2 cursor-pointer"
+            onClick={scrollToGifts}
+          >
+            <p className="font-serif text-white text-base uppercase tracking-widest">
+              Ver presentes & vaquinhas
+            </p>
+            <motion.div
+              animate={{ y: [0, 8, 0] }}
+              transition={{ repeat: Infinity, duration: 1.5 }}
+            >
+              <ChevronDown className="w-8 h-8 text-white" />
+            </motion.div>
           </motion.div>
 
           {/* Card com info do casamento */}
@@ -89,7 +122,7 @@ export const InvitationLanding = ({ guest }) => {
             <div className="space-y-6">
               {weddingInfo?.date && (
                 <div className="flex items-start gap-4">
-                  <Calendar className="w-6 h-6 text-wedding-gold flex-shrink-0 mt-1" />
+                  <Calendar className="w-6 h-6 text-black flex-shrink-0 mt-1" />
                   <div>
                     <p className="font-serif text-sm uppercase tracking-widest text-slate-400 mb-1">Data</p>
                     <p className="font-sans text-lg text-slate-700">
@@ -100,7 +133,7 @@ export const InvitationLanding = ({ guest }) => {
               )}
               {weddingInfo?.location && (
                 <div className="flex items-start gap-4">
-                  <MapPin className="w-6 h-6 text-wedding-gold flex-shrink-0 mt-1" />
+                  <MapPin className="w-6 h-6 text-red flex-shrink-0 mt-1" />
                   <div>
                     <p className="font-serif text-sm uppercase tracking-widest text-slate-400 mb-1">Local</p>
                     <p className="font-sans text-lg text-slate-700">{weddingInfo.location}</p>
@@ -118,29 +151,10 @@ export const InvitationLanding = ({ guest }) => {
             className="text-center mb-8"
           >
             <p className="text-sm text-slate-500">
-              Confirmado: <span className="font-semibold text-wedding-blue">
+              Confirmado: <span className="font-semibold text-wedding-black">
                 {guest.confirmados ? guest.confirmados.join(', ') : guest.name}
               </span>
             </p>
-          </motion.div>
-
-          {/* Botão scroll para presentes */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.2 }}
-            className="flex flex-col items-center gap-2 cursor-pointer"
-            onClick={scrollToGifts}
-          >
-            <p className="font-serif text-slate-500 text-sm uppercase tracking-widest">
-              Ver presentes & vaquinhas
-            </p>
-            <motion.div
-              animate={{ y: [0, 8, 0] }}
-              transition={{ repeat: Infinity, duration: 1.5 }}
-            >
-              <ChevronDown className="w-8 h-8 text-wedding-gold" />
-            </motion.div>
           </motion.div>
         </div>
       </div>
