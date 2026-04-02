@@ -35,13 +35,22 @@ const PublicFlow = () => {
 };
 
 const AdminFlow = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [adminToken, setAdminToken] = useState(() => localStorage.getItem('adminToken'));
 
-  if (!isAuthenticated && !localStorage.getItem('adminToken')) {
-    return <AdminLogin onLoginSuccess={() => setIsAuthenticated(true)} />;
+  const handleLoginSuccess = (token) => {
+    setAdminToken(token);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminToken');
+    setAdminToken(null);
+  };
+
+  if (!adminToken) {
+    return <AdminLogin onLoginSuccess={handleLoginSuccess} />;
   }
 
-  return <AdminDashboard />;
+  return <AdminDashboard onLogout={handleLogout} />;
 };
 
 function App() {

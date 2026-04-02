@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Gift, Heart, Settings, LogOut, Menu, X } from 'lucide-react';
 import { GuestsList } from './GuestsList';
@@ -6,12 +6,14 @@ import { GiftsManagement } from './GiftsManagement';
 import { VaquinhasManagement } from './VaquinhasManagement';
 import { WeddingSettings } from './WeddingSettings';
 import { toast } from 'sonner';
+import axios from 'axios';
 
-export const AdminDashboard = () => {
+export const AdminDashboard = ({ onLogout }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('guests');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
+  const unauthorizedHandledRef = useRef(false);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -20,15 +22,33 @@ export const AdminDashboard = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
+    onLogout?.();
     toast.success('Logout realizado com sucesso');
     navigate('/admin');
   };
 
-  const handleUnauthorized = () => {
+  const handleUnauthorized = useCallback(() => {
+    if (unauthorizedHandledRef.current) return;
+    unauthorizedHandledRef.current = true;
     localStorage.removeItem('adminToken');
+    onLogout?.();
     toast.error('Sua sessão expirou. Faça login novamente.');
     navigate('/admin');
-  };
+  }, [navigate, onLogout]);
+
+  useEffect(() => {
+    const interceptorId = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error?.response?.status === 401 && error?.config?.headers?.Authorization) {
+          handleUnauthorized();
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => axios.interceptors.response.eject(interceptorId);
+  }, [handleUnauthorized]);
 
   const menuItems = [
     { id: 'guests', label: 'Convidados', icon: Users, badge: notifCount },
