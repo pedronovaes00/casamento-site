@@ -23,6 +23,21 @@ import { CSS } from '@dnd-kit/utilities';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+const normalizarMembros = (membros) =>
+  Array.isArray(membros)
+    ? membros
+      .map((membro) => {
+        if (typeof membro === 'string') {
+          return { nome: membro, confirmado: false };
+        }
+        return {
+          nome: membro?.nome || '',
+          confirmado: Boolean(membro?.confirmado)
+        };
+      })
+      .filter((membro) => membro.nome)
+    : [];
+
 // Item arrastável — membro dentro do dialog
 const SortableMembro = ({ id, value, index, onChange, onRemove, canRemove }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -54,8 +69,9 @@ const SortableMembro = ({ id, value, index, onChange, onRemove, canRemove }) => 
 // Item arrastável — grupo na lista principal
 const SortableGrupo = ({ grupo, expandido, onToggle, onEditar, onDeletar }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: grupo.id });
-  const confirmados = grupo.membros.filter(m => m.confirmado);
-  const pendentes = grupo.membros.filter(m => !m.confirmado);
+  const membros = normalizarMembros(grupo?.membros);
+  const confirmados = membros.filter(m => m.confirmado);
+  const pendentes = membros.filter(m => !m.confirmado);
   const aberto = expandido === grupo.id;
 
   return (
@@ -80,7 +96,7 @@ const SortableGrupo = ({ grupo, expandido, onToggle, onEditar, onDeletar }) => {
           <div>
             <p className="font-serif text-lg text-wedding-blue">{grupo.nomeGrupo}</p>
             <p className="text-sm text-slate-500">
-              {grupo.membros.length} membro{grupo.membros.length !== 1 ? 's' : ''}
+              {membros.length} membro{membros.length !== 1 ? 's' : ''}
               {confirmados.length > 0 && (
                 <span className="ml-2 text-green-600 font-semibold">
                   · {confirmados.length} confirmado{confirmados.length !== 1 ? 's' : ''}
@@ -110,7 +126,7 @@ const SortableGrupo = ({ grupo, expandido, onToggle, onEditar, onDeletar }) => {
             className="border-t border-slate-100 px-5 py-4"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {grupo.membros.map((membro) => (
+              {membros.map((membro) => (
                 <div
                   key={membro.nome}
                   className={`flex items-center gap-3 rounded-lg px-4 py-2.5 ${membro.confirmado ? 'bg-green-50' : 'bg-slate-50'}`}
@@ -161,9 +177,17 @@ export const GuestsList = ({ onNotifCount }) => {
         axios.get(`${API}/grupos`, { headers }),
         axios.get(`${API}/admin/notificacoes`, { headers })
       ]);
-      setGrupos(gruposRes.data);
-      setNotificacoes(notifRes.data);
-      onNotifCount?.(notifRes.data.length);
+      const gruposNormalizados = Array.isArray(gruposRes.data)
+        ? gruposRes.data.map((grupo) => ({
+          ...grupo,
+          membros: normalizarMembros(grupo?.membros)
+        }))
+        : [];
+      const notificacoesNormalizadas = Array.isArray(notifRes.data) ? notifRes.data : [];
+
+      setGrupos(gruposNormalizados);
+      setNotificacoes(notificacoesNormalizadas);
+      onNotifCount?.(notificacoesNormalizadas.length);
     } catch {
       toast.error('Erro ao carregar dados');
     } finally {
@@ -201,7 +225,7 @@ export const GuestsList = ({ onNotifCount }) => {
 
   const abrirEditar = (grupo) => {
     setEditando(grupo);
-    const membros = grupo.membros.map(m => m.nome);
+    const membros = normalizarMembros(grupo?.membros).map(m => m.nome);
     setForm({ nomeGrupo: grupo.nomeGrupo, membros });
     setMembroIds(membros.map((_, i) => `membro-${i}`));
     setShowDialog(true);
@@ -277,8 +301,8 @@ export const GuestsList = ({ onNotifCount }) => {
     </div>
   );
 
-  const totalConfirmados = grupos.reduce((sum, g) => sum + g.membros.filter(m => m.confirmado).length, 0);
-  const totalConvidados = grupos.reduce((sum, g) => sum + g.membros.length, 0);
+  const totalConfirmados = grupos.reduce((sum, g) => sum + normalizarMembros(g?.membros).filter(m => m.confirmado).length, 0);
+  const totalConvidados = grupos.reduce((sum, g) => sum + normalizarMembros(g?.membros).length, 0);
 
   return (
     <div>
