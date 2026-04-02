@@ -24,6 +24,12 @@ export const AdminDashboard = () => {
     navigate('/admin');
   };
 
+  const handleUnauthorized = () => {
+    localStorage.removeItem('adminToken');
+    toast.error('Sua sessão expirou. Faça login novamente.');
+    navigate('/admin');
+  };
+
   const menuItems = [
     { id: 'guests', label: 'Convidados', icon: Users, badge: notifCount },
     { id: 'gifts', label: 'Presentes', icon: Gift },
@@ -87,7 +93,7 @@ export const AdminDashboard = () => {
 
       <main className="lg:ml-64 min-h-screen">
         <div className="p-6 lg:p-8">
-          {activeTab === 'guests' && <GuestsList onNotifCount={setNotifCount} />}
+          {activeTab === 'guests' && <GuestsList onNotifCount={setNotifCount} onUnauthorized={handleUnauthorized} />}
           {activeTab === 'gifts' && <GiftsManagement />}
           {activeTab === 'vaquinhas' && <VaquinhasManagement />}
           {activeTab === 'settings' && <WeddingSettings />}

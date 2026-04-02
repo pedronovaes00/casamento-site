@@ -153,7 +153,7 @@ const SortableGrupo = ({ grupo, expandido, onToggle, onEditar, onDeletar }) => {
   );
 };
 
-export const GuestsList = ({ onNotifCount }) => {
+export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
   const [grupos, setGrupos] = useState([]);
   const [notificacoes, setNotificacoes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -172,6 +172,10 @@ export const GuestsList = ({ onNotifCount }) => {
   const fetchAll = async () => {
     try {
       const token = localStorage.getItem('adminToken');
+      if (!token) {
+        onUnauthorized?.();
+        return;
+      }
       const headers = { Authorization: `Bearer ${token}` };
       const [gruposRes, notifRes] = await Promise.all([
         axios.get(`${API}/grupos`, { headers }),
@@ -188,7 +192,11 @@ export const GuestsList = ({ onNotifCount }) => {
       setGrupos(gruposNormalizados);
       setNotificacoes(notificacoesNormalizadas);
       onNotifCount?.(notificacoesNormalizadas.length);
-    } catch {
+    } catch (error) {
+      if (error.response?.status === 401) {
+        onUnauthorized?.();
+        return;
+      }
       toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
@@ -267,7 +275,11 @@ export const GuestsList = ({ onNotifCount }) => {
       }
       setShowDialog(false);
       fetchAll();
-    } catch {
+    } catch (error) {
+      if (error.response?.status === 401) {
+        onUnauthorized?.();
+        return;
+      }
       toast.error('Erro ao salvar grupo');
     }
   };
@@ -279,7 +291,11 @@ export const GuestsList = ({ onNotifCount }) => {
       await axios.delete(`${API}/grupos/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       toast.success('Grupo excluído!');
       fetchAll();
-    } catch {
+    } catch (error) {
+      if (error.response?.status === 401) {
+        onUnauthorized?.();
+        return;
+      }
       toast.error('Erro ao excluir grupo');
     }
   };
@@ -290,7 +306,11 @@ export const GuestsList = ({ onNotifCount }) => {
       await axios.delete(`${API}/admin/notificacoes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       toast.success('Notificação resolvida!');
       fetchAll();
-    } catch {
+    } catch (error) {
+      if (error.response?.status === 401) {
+        onUnauthorized?.();
+        return;
+      }
       toast.error('Erro ao resolver notificação');
     }
   };
