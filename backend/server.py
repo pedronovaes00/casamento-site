@@ -49,6 +49,14 @@ cloudinary.config(
 JWT_SECRET = os.environ.get('JWT_SECRET', 'wedding-secret-key-2024')
 JWT_ALGORITHM = 'HS256'
 
+def get_admin_token_expires_days() -> int:
+    """Dias de expiração do token admin (default: 365)."""
+    try:
+        days = int(os.environ.get('ADMIN_TOKEN_EXPIRES_DAYS', '365'))
+        return days if days > 0 else 365
+    except ValueError:
+        return 365
+
 security = HTTPBearer()
 
 app = FastAPI()
@@ -203,9 +211,10 @@ async def admin_login(login_data: AdminLogin):
     admin_id = os.environ.get('ADMIN_ID', 'noivos2024')
     admin_password = os.environ.get('ADMIN_PASSWORD', 'casamento123')
     if login_data.adminId == admin_id and login_data.password == admin_password:
+        expires_in_days = get_admin_token_expires_days()
         token_data = {
             'adminId': login_data.adminId,
-            'exp': datetime.now(timezone.utc) + timedelta(days=7)
+            'exp': datetime.now(timezone.utc) + timedelta(days=expires_in_days)
         }
         token = jwt.encode(token_data, JWT_SECRET, algorithm=JWT_ALGORITHM)
         return AdminLoginResponse(token=token, message="Login realizado com sucesso")
