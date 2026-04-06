@@ -261,15 +261,15 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                       <div className="flex gap-2">
                         <button
                           onClick={() => openIdentifyModal(gift.id, 'physical')}
-                          className="flex-1 bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 font-serif transition-all"
+                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
                         >
-                          Presentear
+                          Reservar
                         </button>
                         <button
                           onClick={() => openIdentifyModal(gift.id, 'pix')}
-                          className="flex-1 bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 font-serif transition-all"
+                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
                         >
-                          Doar via PIX
+                          PIX
                         </button>
                       </div>
                     ) : (
@@ -277,15 +277,15 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                         <button
                           onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'physical' })}
                           data-testid={`claim-gift-button-${gift.id}`}
-                          className="flex-1 bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 font-serif transition-all"
+                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
                         >
-                          Presentear
+                          Reservar
                         </button>
                         <button
                           onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'pix' })}
-                          className="flex-1 bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 font-serif transition-all"
+                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
                         >
-                          Doar via PIX
+                          PIX
                         </button>
                       </div>
                     )}
