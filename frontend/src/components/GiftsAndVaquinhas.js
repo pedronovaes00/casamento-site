@@ -69,6 +69,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   });
 
   const [pixModal, setPixModal] = useState(false);
+  const isReadOnly = !guest?.id;
 
   useEffect(() => { fetchData(); }, []);
 
@@ -88,6 +89,10 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   };
 
   const handleClaimGift = async (giftId, claimType) => {
+    if (isReadOnly) {
+      toast.info('Confirme sua presença para reservar um presente 💛');
+      return;
+    }
     try {
       await axios.put(`${API}/gifts/${giftId}/claim?guest_id=${guest.id}&guest_name=${encodeURIComponent(guest.name)}&claim_type=${claimType}`);
       toast.success(claimType === 'pix' ? 'Presente reservado! Agora faça o PIX 💛' : 'Presente reservado com sucesso!');
@@ -115,12 +120,25 @@ export const GiftsAndVaquinhas = ({ guest }) => {
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
           <Heart className="w-12 h-12 text-wedding-roseDust fill-wedding-roseDust mx-auto mb-4" />
-          <h1 className="font-serif text-4xl md:text-5xl text-slate-800 mb-4 drop-shadow-sm">
-            Obrigado por confirmar, {guest.name.split(' ')[0]}!
-          </h1>
-          <p className="font-sans text-lg text-slate-700 max-w-2xl mx-auto">
-            Se desejar, você pode nos presentear com um dos itens abaixo ou contribuir com nossas vaquinhas, qualquer valor já ajuda e muito o casal!
-          </p>
+          {isReadOnly ? (
+            <>
+              <h1 className="font-serif text-4xl md:text-5xl text-slate-800 mb-4 drop-shadow-sm">
+                Presentes & Vaquinhas
+              </h1>
+              <p className="font-sans text-lg text-slate-700 max-w-2xl mx-auto">
+                Quer nos presentear? Veja os itens disponíveis e as vaquinhas. 💛
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="font-serif text-4xl md:text-5xl text-slate-800 mb-4 drop-shadow-sm">
+                Obrigado por confirmar, {guest.name.split(' ')[0]}!
+              </h1>
+              <p className="font-sans text-lg text-slate-700 max-w-2xl mx-auto">
+                Se desejar, você pode nos presentear com um dos itens abaixo ou contribuir com nossas vaquinhas, qualquer valor já ajuda e muito o casal!
+              </p>
+            </>
+          )}
         </motion.div>
 
         {/* Tabs */}
@@ -175,21 +193,30 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                       </a>
                     )}
                     {gift.price && <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>}
-                    <div className="flex gap-2">
+                    {isReadOnly ? (
                       <button
-                        onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'physical' })}
-                        data-testid={`claim-gift-button-${gift.id}`}
-                        className="flex-1 bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 font-serif transition-all"
+                        onClick={() => toast.info('Confirme sua presença para reservar um presente 💛')}
+                        className="w-full bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg py-3 font-serif transition-all"
                       >
-                        Presentear
+                        Confirme presença para reservar
                       </button>
-                      <button
-                        onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'pix' })}
-                        className="flex-1 bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 font-serif transition-all"
-                      >
-                        Doar via PIX
-                      </button>
-                    </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'physical' })}
+                          data-testid={`claim-gift-button-${gift.id}`}
+                          className="flex-1 bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 font-serif transition-all"
+                        >
+                          Presentear
+                        </button>
+                        <button
+                          onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'pix' })}
+                          className="flex-1 bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 font-serif transition-all"
+                        >
+                          Doar via PIX
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               ))
