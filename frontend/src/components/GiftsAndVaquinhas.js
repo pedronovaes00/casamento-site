@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gift, Heart, QrCode, X } from 'lucide-react';
+import { Gift, Heart, QrCode, Search, X } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import DonationModal from './DonationModal';
@@ -69,9 +69,55 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   });
 
   const [pixModal, setPixModal] = useState(false);
+  const [identifyModal, setIdentifyModal] = useState({ isOpen: false, giftId: null, type: 'physical' });
+  const [donorQuery, setDonorQuery] = useState('');
+  const [donorResults, setDonorResults] = useState([]);
+  const [isSearchingDonor, setIsSearchingDonor] = useState(false);
+  const [selectedDonor, setSelectedDonor] = useState(null);
+  const donorDebounceRef = useRef(null);
   const isReadOnly = !guest?.id;
 
   useEffect(() => { fetchData(); }, []);
+
+  const normalizar = (str = '') =>
+    str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+  const buscarDoador = useCallback(async (termo) => {
+    setIsSearchingDonor(true);
+    try {
+      const res = await axios.get(`${API}/grupos/buscar?nome=${encodeURIComponent(termo)}`);
+      const termoNormalizado = normalizar(termo);
+      const encontrados = res.data.flatMap((grupo) =>
+        grupo.membros
+          .filter((membro) => normalizar(membro.nome).includes(termoNormalizado))
+          .map((membro) => ({
+            id: grupo.id,
+            nomeGrupo: grupo.nomeGrupo,
+            name: membro.nome
+          }))
+      );
+      setDonorResults(encontrados);
+    } catch {
+      toast.error('Erro ao buscar convidado. Tente novamente.');
+    } finally {
+      setIsSearchingDonor(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!identifyModal.isOpen) return;
+    if (donorQuery.trim().length < 2) {
+      setDonorResults([]);
+      setSelectedDonor(null);
+      return;
+    }
+    clearTimeout(donorDebounceRef.current);
+    donorDebounceRef.current = setTimeout(() => buscarDoador(donorQuery.trim()), 350);
+  }, [donorQuery, identifyModal.isOpen, buscarDoador]);
 
   const fetchData = async () => {
     try {
@@ -88,13 +134,14 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     }
   };
 
-  const handleClaimGift = async (giftId, claimType) => {
-    if (isReadOnly) {
+  const handleClaimGift = async (giftId, claimType, guestData = guest) => {
+    const claimant = guestData || guest;
+    if (!claimant?.id || !claimant?.name) {
       toast.info('Confirme sua presença para reservar um presente 💛');
       return;
     }
     try {
-      await axios.put(`${API}/gifts/${giftId}/claim?guest_id=${guest.id}&guest_name=${encodeURIComponent(guest.name)}&claim_type=${claimType}`);
+      await axios.put(`${API}/gifts/${giftId}/claim?guest_id=${claimant.id}&guest_name=${encodeURIComponent(claimant.name)}&claim_type=${claimType}`);
       toast.success(claimType === 'pix' ? 'Presente reservado! Agora faça o PIX 💛' : 'Presente reservado com sucesso!');
       fetchData();
       if (claimType === 'pix') {
@@ -109,6 +156,23 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     const { giftId, type } = confirmModal;
     setConfirmModal({ isOpen: false, giftId: null, type: null });
     handleClaimGift(giftId, type);
+  };
+
+  const openIdentifyModal = (giftId, type) => {
+    setIdentifyModal({ isOpen: true, giftId, type });
+    setDonorQuery('');
+    setDonorResults([]);
+    setSelectedDonor(null);
+  };
+
+  const confirmReadOnlyGiftClaim = async () => {
+    if (!selectedDonor) {
+      toast.error('Selecione seu nome para confirmar o presente.');
+      return;
+    }
+    const { giftId, type } = identifyModal;
+    setIdentifyModal({ isOpen: false, giftId: null, type: 'physical' });
+    await handleClaimGift(giftId, type, selectedDonor);
   };
 
   const availableGifts = gifts.filter(g => !g.isTaken);
@@ -126,7 +190,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                 Presentes & Vaquinhas
               </h1>
               <p className="font-sans text-lg text-slate-700 max-w-2xl mx-auto">
-                Quer nos presentear? Veja os itens disponíveis e as vaquinhas. 💛
+                Quer nos presentear? Veja os itens disponíveis e as vaquinhas.
               </p>
             </>
           ) : (
@@ -194,12 +258,20 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                     )}
                     {gift.price && <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>}
                     {isReadOnly ? (
-                      <button
-                        onClick={() => toast.info('Confirme sua presença para reservar um presente 💛')}
-                        className="w-full bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg py-3 font-serif transition-all"
-                      >
-                        Confirme presença para reservar
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openIdentifyModal(gift.id, 'physical')}
+                          className="flex-1 bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 font-serif transition-all"
+                        >
+                          Presentear
+                        </button>
+                        <button
+                          onClick={() => openIdentifyModal(gift.id, 'pix')}
+                          className="flex-1 bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 font-serif transition-all"
+                        >
+                          Doar via PIX
+                        </button>
+                      </div>
                     ) : (
                       <div className="flex gap-2">
                         <button
@@ -372,6 +444,85 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                 className="w-full mt-6 bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-full py-3 font-serif transition-all shadow-lg"
               >
                 Feito!
+              </button>
+            </motion.div>
+          </div>
+        </AnimatePresence>
+      )}
+
+      {/* Modal de identificação para etapa pública */}
+      {identifyModal.isOpen && (
+        <AnimatePresence>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIdentifyModal({ isOpen: false, giftId: null, type: 'physical' })}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 z-10"
+            >
+              <button
+                onClick={() => setIdentifyModal({ isOpen: false, giftId: null, type: 'physical' })}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <h2 className="font-serif text-2xl text-slate-800 mb-2">Quem vai presentear?</h2>
+              <p className="text-slate-500 mb-5">
+                Digite seu nome, selecione na lista e confirme o presente.
+              </p>
+
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={donorQuery}
+                  onChange={(e) => setDonorQuery(e.target.value)}
+                  placeholder="Digite seu nome..."
+                  className="w-full border-2 border-wedding-goldLight focus:border-wedding-gold rounded-lg pl-10 pr-4 py-3 focus:outline-none"
+                  autoFocus
+                />
+              </div>
+
+              {isSearchingDonor && <p className="text-sm text-slate-400 mb-3">Buscando...</p>}
+
+              {!isSearchingDonor && donorQuery.trim().length >= 2 && donorResults.length === 0 && (
+                <p className="text-sm text-rose-500 mb-4">Nenhum nome encontrado. Tente novamente.</p>
+              )}
+
+              <div className="max-h-56 overflow-y-auto space-y-2 mb-6">
+                {donorResults.map((donor) => {
+                  const isSelected = selectedDonor?.id === donor.id && selectedDonor?.name === donor.name;
+                  return (
+                    <button
+                      key={`${donor.id}-${donor.name}`}
+                      onClick={() => setSelectedDonor({ id: donor.id, name: donor.name })}
+                      className={`w-full text-left rounded-lg border px-4 py-3 transition-all ${
+                        isSelected
+                          ? 'border-wedding-blue bg-wedding-blue/10'
+                          : 'border-slate-200 hover:border-wedding-goldLight'
+                      }`}
+                    >
+                      <p className="font-semibold text-wedding-blue">{donor.name}</p>
+                      <p className="text-xs text-slate-500">{donor.nomeGrupo}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={confirmReadOnlyGiftClaim}
+                disabled={!selectedDonor}
+                className="w-full bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-full py-3 font-serif transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Confirmar presente
               </button>
             </motion.div>
           </div>
