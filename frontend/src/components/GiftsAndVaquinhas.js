@@ -76,6 +76,8 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   const [selectedDonor, setSelectedDonor] = useState(null);
   const donorDebounceRef = useRef(null);
   const isReadOnly = !guest?.id;
+  const [hasLoadedRemoteData, setHasLoadedRemoteData] = useState(false);
+  const [isWakingBackend, setIsWakingBackend] = useState(false);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -129,9 +131,22 @@ export const GiftsAndVaquinhas = ({ guest }) => {
       setGifts(giftsRes.data);
       setVaquinhas(vaquinhasRes.data);
       setWeddingInfo(infoRes.data);
+      setHasLoadedRemoteData(true);
+      return true;
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
+      return false;
     }
+  };
+
+  const acordarBackend = async () => {
+    setIsWakingBackend(true);
+    const primeiraTentativa = await fetchData();
+    if (!primeiraTentativa) {
+      await new Promise((resolve) => setTimeout(resolve, 1800));
+      await fetchData();
+    }
+    setIsWakingBackend(false);
   };
 
   const handleClaimGift = async (giftId, claimType, guestData = guest) => {
@@ -176,6 +191,17 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   };
 
   const availableGifts = gifts.filter(g => !g.isTaken);
+  const mostrarPreview = isReadOnly && !hasLoadedRemoteData;
+
+  const giftsPreview = [
+    { id: 'preview-gift-1', name: 'Jogo de Panelas', price: 'Faixa: R$ 180 a R$ 260' },
+    { id: 'preview-gift-2', name: 'Conjunto de Taças', price: 'Faixa: R$ 80 a R$ 140' }
+  ];
+
+  const vaquinhasPreview = [
+    { id: 'preview-v1', title: 'Lua de mel', description: 'Ajude com uma parte da viagem dos noivos.' },
+    { id: 'preview-v2', title: 'Cantinho da casa', description: 'Contribua com itens para o novo lar.' }
+  ];
 
   return (
     <div className="min-h-screen bg-transparent py-16 px-6 relative overflow-hidden">
@@ -226,7 +252,48 @@ export const GiftsAndVaquinhas = ({ guest }) => {
         {/* Gifts Tab */}
         {activeTab === 'gifts' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {availableGifts.length === 0 ? (
+            {mostrarPreview ? (
+              <>
+                {giftsPreview.map((gift) => (
+                  <motion.div
+                    key={gift.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg overflow-hidden"
+                  >
+                    <div className="aspect-video bg-gradient-to-br from-wedding-cream to-white flex items-center justify-center">
+                      <Gift className="w-14 h-14 text-wedding-gold/70" />
+                    </div>
+                    <div className="p-6">
+                      <h3 className="font-serif text-xl text-wedding-blue mb-2">{gift.name}</h3>
+                      <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={acordarBackend}
+                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
+                        >
+                          Reservar
+                        </button>
+                        <button
+                          onClick={acordarBackend}
+                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
+                        >
+                          PIX
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+                <div className="col-span-full flex justify-center mt-2">
+                  <button
+                    onClick={acordarBackend}
+                    className="bg-white/90 hover:bg-white text-wedding-blue border border-wedding-goldLight rounded-full px-8 py-3 font-serif transition-all shadow"
+                  >
+                    {isWakingBackend ? 'Carregando lista...' : 'Ver mais presentes'}
+                  </button>
+                </div>
+              </>
+            ) : availableGifts.length === 0 ? (
               <div className="col-span-full text-center py-12">
                 <p className="text-slate-500 font-sans">Nenhum presente disponível no momento</p>
               </div>
@@ -299,7 +366,35 @@ export const GiftsAndVaquinhas = ({ guest }) => {
         {/* Vaquinhas Tab */}
         {activeTab === 'vaquinhas' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto space-y-6">
-            {vaquinhas.length === 0 ? (
+            {mostrarPreview ? (
+              <>
+                {vaquinhasPreview.map((vaquinha) => (
+                  <motion.div
+                    key={vaquinha.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg p-8"
+                  >
+                    <h3 className="font-serif text-2xl text-wedding-blue mb-2">{vaquinha.title}</h3>
+                    <p className="text-slate-600 mb-6">{vaquinha.description}</p>
+                    <button
+                      onClick={acordarBackend}
+                      className="w-full bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-lg py-3 font-serif transition-all shadow-lg"
+                    >
+                      Contribuir
+                    </button>
+                  </motion.div>
+                ))}
+                <div className="flex justify-center mt-2">
+                  <button
+                    onClick={acordarBackend}
+                    className="bg-white/90 hover:bg-white text-wedding-blue border border-wedding-goldLight rounded-full px-8 py-3 font-serif transition-all shadow"
+                  >
+                    {isWakingBackend ? 'Carregando lista...' : 'Ver mais vaquinhas'}
+                  </button>
+                </div>
+              </>
+            ) : vaquinhas.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-slate-500 font-sans">Nenhuma vaquinha disponível no momento</p>
               </div>
