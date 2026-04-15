@@ -156,6 +156,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
       console.error('Erro ao carregar dados:', error);
       return false;
     }
+    setIsWakingBackend(false);
   };
 
   const acordarBackend = async () => {
