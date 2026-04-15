@@ -78,6 +78,19 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   const isReadOnly = !guest?.id;
   const [hasLoadedRemoteData, setHasLoadedRemoteData] = useState(false);
   const [isWakingBackend, setIsWakingBackend] = useState(false);
+  const [previewData, setPreviewData] = useState(() => {
+    try {
+      const raw = localStorage.getItem('casamento_preview_data');
+      if (!raw) return { gifts: [], vaquinhas: [] };
+      const parsed = JSON.parse(raw);
+      return {
+        gifts: Array.isArray(parsed?.gifts) ? parsed.gifts.slice(0, 2) : [],
+        vaquinhas: Array.isArray(parsed?.vaquinhas) ? parsed.vaquinhas.slice(0, 2) : []
+      };
+    } catch {
+      return { gifts: [], vaquinhas: [] };
+    }
+  });
 
   useEffect(() => { fetchData(); }, []);
 
@@ -131,12 +144,19 @@ export const GiftsAndVaquinhas = ({ guest }) => {
       setGifts(giftsRes.data);
       setVaquinhas(vaquinhasRes.data);
       setWeddingInfo(infoRes.data);
+      const snapshot = {
+        gifts: giftsRes.data.filter((gift) => !gift.isTaken).slice(0, 2),
+        vaquinhas: vaquinhasRes.data.slice(0, 2)
+      };
+      setPreviewData(snapshot);
+      localStorage.setItem('casamento_preview_data', JSON.stringify(snapshot));
       setHasLoadedRemoteData(true);
       return true;
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       return false;
     }
+    setIsWakingBackend(false);
   };
 
   const acordarBackend = async () => {
@@ -193,16 +213,6 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   const availableGifts = gifts.filter(g => !g.isTaken);
   const mostrarPreview = isReadOnly && !hasLoadedRemoteData;
 
-  const giftsPreview = [
-    { id: 'preview-gift-1', name: 'Jogo de Panelas', price: 'Faixa: R$ 180 a R$ 260' },
-    { id: 'preview-gift-2', name: 'Conjunto de Taças', price: 'Faixa: R$ 80 a R$ 140' }
-  ];
-
-  const vaquinhasPreview = [
-    { id: 'preview-v1', title: 'Lua de mel', description: 'Ajude com uma parte da viagem dos noivos.' },
-    { id: 'preview-v2', title: 'Cantinho da casa', description: 'Contribua com itens para o novo lar.' }
-  ];
-
   return (
     <div className="min-h-screen bg-transparent py-16 px-6 relative overflow-hidden">
       <div className="max-w-6xl mx-auto relative z-10">
@@ -254,19 +264,25 @@ export const GiftsAndVaquinhas = ({ guest }) => {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {mostrarPreview ? (
               <>
-                {giftsPreview.map((gift) => (
+                {(previewData.gifts.length > 0 ? previewData.gifts : [{ id: 'preview-gift-1' }, { id: 'preview-gift-2' }]).map((gift, index) => (
                   <motion.div
-                    key={gift.id}
+                    key={gift.id || `preview-gift-${index}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg overflow-hidden"
                   >
-                    <div className="aspect-video bg-gradient-to-br from-wedding-cream to-white flex items-center justify-center">
-                      <Gift className="w-14 h-14 text-wedding-gold/70" />
-                    </div>
+                    {gift.imageUrl ? (
+                      <div className="aspect-video bg-wedding-stone overflow-hidden">
+                        <img src={gift.imageUrl} alt={gift.name} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="aspect-video bg-gradient-to-br from-wedding-cream to-white flex items-center justify-center">
+                        <Gift className="w-14 h-14 text-wedding-gold/70" />
+                      </div>
+                    )}
                     <div className="p-6">
-                      <h3 className="font-serif text-xl text-wedding-blue mb-2">{gift.name}</h3>
-                      <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>
+                      <h3 className="font-serif text-xl text-wedding-blue mb-2">{gift.name || 'Carregando presente...'}</h3>
+                      {gift.price && <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>}
                       <div className="flex gap-2">
                         <button
                           onClick={acordarBackend}
@@ -368,15 +384,15 @@ export const GiftsAndVaquinhas = ({ guest }) => {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto space-y-6">
             {mostrarPreview ? (
               <>
-                {vaquinhasPreview.map((vaquinha) => (
+                {(previewData.vaquinhas.length > 0 ? previewData.vaquinhas : [{ id: 'preview-v1' }, { id: 'preview-v2' }]).map((vaquinha, index) => (
                   <motion.div
-                    key={vaquinha.id}
+                    key={vaquinha.id || `preview-vaquinha-${index}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg p-8"
                   >
-                    <h3 className="font-serif text-2xl text-wedding-blue mb-2">{vaquinha.title}</h3>
-                    <p className="text-slate-600 mb-6">{vaquinha.description}</p>
+                    <h3 className="font-serif text-2xl text-wedding-blue mb-2">{vaquinha.title || 'Carregando vaquinha...'}</h3>
+                    {vaquinha.description && <p className="text-slate-600 mb-6">{vaquinha.description}</p>}
                     <button
                       onClick={acordarBackend}
                       className="w-full bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-lg py-3 font-serif transition-all shadow-lg"
