@@ -120,6 +120,46 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     donorDebounceRef.current = setTimeout(() => buscarDoador(donorQuery.trim()), 350);
   }, [donorQuery, identifyModal.isOpen, buscarDoador]);
 
+  const normalizar = (str = '') =>
+    str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+  const buscarDoador = useCallback(async (termo) => {
+    setIsSearchingDonor(true);
+    try {
+      const res = await axios.get(`${API}/grupos/buscar?nome=${encodeURIComponent(termo)}`);
+      const termoNormalizado = normalizar(termo);
+      const encontrados = res.data.flatMap((grupo) =>
+        grupo.membros
+          .filter((membro) => normalizar(membro.nome).includes(termoNormalizado))
+          .map((membro) => ({
+            id: grupo.id,
+            nomeGrupo: grupo.nomeGrupo,
+            name: membro.nome
+          }))
+      );
+      setDonorResults(encontrados);
+    } catch {
+      toast.error('Erro ao buscar convidado. Tente novamente.');
+    } finally {
+      setIsSearchingDonor(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!identifyModal.isOpen) return;
+    if (donorQuery.trim().length < 2) {
+      setDonorResults([]);
+      setSelectedDonor(null);
+      return;
+    }
+    clearTimeout(donorDebounceRef.current);
+    donorDebounceRef.current = setTimeout(() => buscarDoador(donorQuery.trim()), 350);
+  }, [donorQuery, identifyModal.isOpen, buscarDoador]);
+
   const fetchData = async () => {
     try {
       const [giftsRes, vaquinhasRes, infoRes] = await Promise.all([
