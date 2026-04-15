@@ -48,9 +48,10 @@ jobs:
         run: |
           cd frontend
           yarn test --watchAll=false
-          
+
       - name: Build frontend
         run: |
           cd frontend
           yarn build
-        
+
+           
