@@ -78,8 +78,47 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   const isReadOnly = !guest?.id;
   const [hasLoadedRemoteData, setHasLoadedRemoteData] = useState(false);
   const [isWakingBackend, setIsWakingBackend] = useState(false);
+  
 
-  useEffect(() => { fetchData(); }, []);
+  const normalizar = (str = '') =>
+    str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+  const buscarDoador = useCallback(async (termo) => {
+    setIsSearchingDonor(true);
+    try {
+      const res = await axios.get(`${API}/grupos/buscar?nome=${encodeURIComponent(termo)}`);
+      const termoNormalizado = normalizar(termo);
+      const encontrados = res.data.flatMap((grupo) =>
+        grupo.membros
+          .filter((membro) => normalizar(membro.nome).includes(termoNormalizado))
+          .map((membro) => ({
+            id: grupo.id,
+            nomeGrupo: grupo.nomeGrupo,
+            name: membro.nome
+          }))
+      );
+      setDonorResults(encontrados);
+    } catch {
+      toast.error('Erro ao buscar convidado. Tente novamente.');
+    } finally {
+      setIsSearchingDonor(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!identifyModal.isOpen) return;
+    if (donorQuery.trim().length < 2) {
+      setDonorResults([]);
+      setSelectedDonor(null);
+      return;
+    }
+    clearTimeout(donorDebounceRef.current);
+    donorDebounceRef.current = setTimeout(() => buscarDoador(donorQuery.trim()), 350);
+  }, [donorQuery, identifyModal.isOpen, buscarDoador]);
 
   const normalizar = (str = '') =>
     str
@@ -149,6 +188,14 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     setIsWakingBackend(false);
   };
 
+  useEffect(() => {
+    if (isReadOnly) {
+      acordarBackend();
+      return;
+    }
+    fetchData();
+  }, [isReadOnly]);
+
   const handleClaimGift = async (giftId, claimType, guestData = guest) => {
     const claimant = guestData || guest;
     if (!claimant?.id || !claimant?.name) {
@@ -191,17 +238,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   };
 
   const availableGifts = gifts.filter(g => !g.isTaken);
-  const mostrarPreview = isReadOnly && !hasLoadedRemoteData;
-
-  const giftsPreview = [
-    { id: 'preview-gift-1', name: 'Jogo de Panelas', price: 'Faixa: R$ 180 a R$ 260' },
-    { id: 'preview-gift-2', name: 'Conjunto de Taças', price: 'Faixa: R$ 80 a R$ 140' }
-  ];
-
-  const vaquinhasPreview = [
-    { id: 'preview-v1', title: 'Lua de mel', description: 'Ajude com uma parte da viagem dos noivos.' },
-    { id: 'preview-v2', title: 'Cantinho da casa', description: 'Contribua com itens para o novo lar.' }
-  ];
+  const carregandoPublico = isReadOnly && !hasLoadedRemoteData;
 
   return (
     <div className="min-h-screen bg-transparent py-16 px-6 relative overflow-hidden">
@@ -251,48 +288,13 @@ export const GiftsAndVaquinhas = ({ guest }) => {
 
         {/* Gifts Tab */}
         {activeTab === 'gifts' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mostrarPreview ? (
-              <>
-                {giftsPreview.map((gift) => (
-                  <motion.div
-                    key={gift.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg overflow-hidden"
-                  >
-                    <div className="aspect-video bg-gradient-to-br from-wedding-cream to-white flex items-center justify-center">
-                      <Gift className="w-14 h-14 text-wedding-gold/70" />
-                    </div>
-                    <div className="p-6">
-                      <h3 className="font-serif text-xl text-wedding-blue mb-2">{gift.name}</h3>
-                      <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={acordarBackend}
-                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
-                        >
-                          Reservar
-                        </button>
-                        <button
-                          onClick={acordarBackend}
-                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
-                        >
-                          PIX
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-                <div className="col-span-full flex justify-center mt-2">
-                  <button
-                    onClick={acordarBackend}
-                    className="bg-white/90 hover:bg-white text-wedding-blue border border-wedding-goldLight rounded-full px-8 py-3 font-serif transition-all shadow"
-                  >
-                    {isWakingBackend ? 'Carregando lista...' : 'Ver mais presentes'}
-                  </button>
-                </div>
-              </>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            {carregandoPublico ? (
+              <div className="col-span-full text-center py-12">
+                <p className="text-slate-600 font-sans">
+                  {isWakingBackend ? 'Carregando presentes...' : 'Preparando lista de presentes...'}
+                </p>
+              </div>
             ) : availableGifts.length === 0 ? (
               <div className="col-span-full text-center py-12">
                 <p className="text-slate-500 font-sans">Nenhum presente disponível no momento</p>
@@ -303,15 +305,15 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                   key={gift.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow"
+                  className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow flex flex-col min-h-[500px]"
                   data-testid={`gift-card-${gift.id}`}
                 >
                   {gift.imageUrl && (
-                    <div className="aspect-video bg-wedding-stone overflow-hidden">
+                    <div className="aspect-[4/3] bg-wedding-stone overflow-hidden">
                       <img src={gift.imageUrl} alt={gift.name} className="w-full h-full object-cover" />
                     </div>
                   )}
-                  <div className="p-6">
+                  <div className="p-7 flex flex-col flex-1">
                     <h3 className="font-serif text-xl text-wedding-blue mb-2">{gift.name}</h3>
                     {gift.description && (
                       <a
@@ -324,8 +326,9 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                       </a>
                     )}
                     {gift.price && <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>}
+                    <div className="mt-auto pt-2">
                     {isReadOnly ? (
-                      <div className="flex gap-2">
+                      <div className="flex gap-3">
                         <button
                           onClick={() => openIdentifyModal(gift.id, 'physical')}
                           className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
@@ -340,7 +343,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex gap-2">
+                      <div className="flex gap-3">
                         <button
                           onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'physical' })}
                           data-testid={`claim-gift-button-${gift.id}`}
@@ -356,6 +359,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                         </button>
                       </div>
                     )}
+                    </div>
                   </div>
                 </motion.div>
               ))
@@ -366,34 +370,12 @@ export const GiftsAndVaquinhas = ({ guest }) => {
         {/* Vaquinhas Tab */}
         {activeTab === 'vaquinhas' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto space-y-6">
-            {mostrarPreview ? (
-              <>
-                {vaquinhasPreview.map((vaquinha) => (
-                  <motion.div
-                    key={vaquinha.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg p-8"
-                  >
-                    <h3 className="font-serif text-2xl text-wedding-blue mb-2">{vaquinha.title}</h3>
-                    <p className="text-slate-600 mb-6">{vaquinha.description}</p>
-                    <button
-                      onClick={acordarBackend}
-                      className="w-full bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-lg py-3 font-serif transition-all shadow-lg"
-                    >
-                      Contribuir
-                    </button>
-                  </motion.div>
-                ))}
-                <div className="flex justify-center mt-2">
-                  <button
-                    onClick={acordarBackend}
-                    className="bg-white/90 hover:bg-white text-wedding-blue border border-wedding-goldLight rounded-full px-8 py-3 font-serif transition-all shadow"
-                  >
-                    {isWakingBackend ? 'Carregando lista...' : 'Ver mais vaquinhas'}
-                  </button>
-                </div>
-              </>
+            {carregandoPublico ? (
+              <div className="text-center py-12">
+                <p className="text-slate-600 font-sans">
+                  {isWakingBackend ? 'Carregando vaquinhas...' : 'Preparando vaquinhas...'}
+                </p>
+              </div>
             ) : vaquinhas.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-slate-500 font-sans">Nenhuma vaquinha disponível no momento</p>
