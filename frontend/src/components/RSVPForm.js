@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ArrowRight, Send, Check, X, Users, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import GiftsAndVaquinhas from './GiftsAndVaquinhas';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -144,51 +145,50 @@ export const RSVPForm = ({ onComplete }) => {
 
           {/* Step 1 — Busca */}
           {step === 1 && (
-            <motion.div
-              key="step1"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12"
-            >
-              <h2 className="font-serif text-3xl md:text-4xl text-slate-800 mb-3 text-center">
-                Confirme sua presença
-              </h2>
-              <p className="text-center text-slate-500 mb-10">
-                Digite seu nome para encontrar seu convite
-              </p>
+            <>
+              <motion.div
+                key="step1"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl p-8 md:p-12"
+              >
+                <h2 className="font-serif text-3xl md:text-4xl text-slate-800 mb-3 text-center">
+                  Confirme sua presença
+                </h2>
+                <p className="text-center text-slate-500 mb-10">
+                  Digite seu nome para encontrar seu convite
+                </p>
 
-              <div className="relative mb-4">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                  placeholder="Digite seu nome..."
-                  autoFocus
-                  className="w-full bg-white border-2 border-wedding-goldLight focus:border-wedding-gold rounded-xl pl-12 pr-4 py-4 font-serif text-xl placeholder:text-slate-300 focus:outline-none transition-colors"
-                />
-                {buscando && (
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                    <div className="animate-spin w-5 h-5 border-2 border-wedding-blue border-t-transparent rounded-full" />
-                  </div>
-                )}
-              </div>
+                <div className="relative mb-4">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder="Digite seu nome..."
+                    autoFocus
+                    className="w-full bg-white border-2 border-wedding-goldLight focus:border-wedding-gold rounded-xl pl-12 pr-4 py-4 font-serif text-xl placeholder:text-slate-300 focus:outline-none transition-colors"
+                  />
+                  {buscando && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                      <div className="animate-spin w-5 h-5 border-2 border-wedding-blue border-t-transparent rounded-full" />
+                    </div>
+                  )}
+                </div>
 
-              <AnimatePresence>
-                {resultados.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="space-y-3 mt-4"
-                  >
-                    <p className="text-sm text-slate-400 font-serif uppercase tracking-wider mb-2">
-                      {resultados.length} resultado{resultados.length > 1 ? 's' : ''} encontrado{resultados.length > 1 ? 's' : ''}:
-                    </p>
-                    {resultados.map((grupo) => {
-                      const confirmados = grupo.membros.filter(m => m.confirmado);
-                      return (
+                <AnimatePresence>
+                  {resultados.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="space-y-3 mt-4"
+                    >
+                      <p className="text-sm text-slate-400 font-serif uppercase tracking-wider mb-2">
+                        {resultados.length} resultado{resultados.length > 1 ? 's' : ''} encontrado{resultados.length > 1 ? 's' : ''}:
+                      </p>
+                      {resultados.map((grupo) => (
                         <motion.button
                           key={grupo.id}
                           initial={{ opacity: 0, y: -6 }}
@@ -205,44 +205,43 @@ export const RSVPForm = ({ onComplete }) => {
                                 <Users className="w-3.5 h-3.5" />
                                 {grupo.membros.map(m => m.nome).join(', ')}
                               </p>
-                              {confirmados.length > 0 && (
-                                <p className="text-xs text-green-600 mt-1 font-semibold">
-                                  ✓ {confirmados.map(m => m.nome).join(', ')} já confirmado{confirmados.length > 1 ? 's' : ''}
-                                </p>
-                              )}
                             </div>
                             <ArrowRight className="w-5 h-5 text-wedding-gold group-hover:translate-x-1 transition-transform ml-3" />
                           </div>
                         </motion.button>
-                      );
-                    })}
-                  </motion.div>
-                )}
+                      ))}
+                    </motion.div>
+                  )}
 
-                {semResultado && !buscando && busca.trim().length >= 2 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="mt-4 bg-rose-50 border border-rose-200 rounded-xl p-6 text-center"
-                  >
-                    <X className="w-8 h-8 text-rose-400 mx-auto mb-2" />
-                    <p className="font-serif text-lg text-slate-700 mb-1">
-                      Não encontramos "<strong>{busca}</strong>"
-                    </p>
-                    <p className="text-sm text-slate-500 mb-4">
-                      Tente um nome diferente ou avise os noivos.
-                    </p>
-                    <button
-                      onClick={handleNaoEncontrado}
-                      className="bg-rose-500 text-white hover:bg-rose-600 rounded-full px-6 py-2 font-serif text-sm transition-all"
+                  {semResultado && !buscando && busca.trim().length >= 2 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="mt-4 bg-rose-50 border border-rose-200 rounded-xl p-6 text-center"
                     >
-                      Avisar os noivos 💌
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
+                      <X className="w-8 h-8 text-rose-400 mx-auto mb-2" />
+                      <p className="font-serif text-lg text-slate-700 mb-1">
+                        Não encontramos "<strong>{busca}</strong>"
+                      </p>
+                      <p className="text-sm text-slate-500 mb-4">
+                        Tente um nome diferente ou avise os noivos.
+                      </p>
+                      <button
+                        onClick={handleNaoEncontrado}
+                        className="bg-rose-500 text-white hover:bg-rose-600 rounded-full px-6 py-2 font-serif text-sm transition-all"
+                      >
+                        Avisar os noivos 💌
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+
+              <div className="mt-10">
+                <GiftsAndVaquinhas />
+              </div>
+            </>
           )}
 
           {/* Step 2 — Seleciona membros */}
