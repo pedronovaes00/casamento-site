@@ -265,55 +265,55 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                   key={gift.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow flex flex-col min-h-[500px]"
+                  className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow w-full max-w-[360px] mx-auto"
                   data-testid={`gift-card-${gift.id}`}
                 >
                   {gift.imageUrl && (
-                    <div className="aspect-[4/3] bg-wedding-stone overflow-hidden">
+                    <div className="h-52 bg-wedding-stone overflow-hidden">
                       <img src={gift.imageUrl} alt={gift.name} className="w-full h-full object-cover" />
                     </div>
                   )}
-                  <div className="p-7 flex flex-col flex-1">
-                    <h3 className="font-serif text-xl text-wedding-blue mb-2">{gift.name}</h3>
+                  <div className="p-6 md:p-7 text-center">
+                    <h3 className="font-serif text-3xl text-wedding-blue mb-2 leading-tight text-center">{gift.name}</h3>
                     {gift.description && (
                       <a
                         href={gift.description}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-wedding-blue hover:underline mb-4"
+                        className="inline-flex items-center justify-center gap-1 text-base text-wedding-blue hover:underline mb-4 mx-auto"
                       >
                         🔗 Ver produto
                       </a>
                     )}
-                    {gift.price && <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>}
-                    <div className="mt-auto pt-2">
+                    {gift.price && <p className="text-wedding-gold font-bold text-4xl mb-6 tracking-tight text-center">{gift.price}</p>}
+                    <div className="w-full">
                     {isReadOnly ? (
-                      <div className="flex gap-3">
+                      <div className="flex gap-3 w-full">
                         <button
                           onClick={() => openIdentifyModal(gift.id, 'physical')}
-                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
+                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-xl py-3 px-2 font-serif text-lg leading-none transition-all"
                         >
                           Reservar
                         </button>
                         <button
                           onClick={() => openIdentifyModal(gift.id, 'pix')}
-                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
+                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-xl py-3 px-2 font-serif text-lg leading-none transition-all"
                         >
                           PIX
                         </button>
                       </div>
                     ) : (
-                      <div className="flex gap-3">
+                      <div className="flex gap-3 w-full">
                         <button
                           onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'physical' })}
                           data-testid={`claim-gift-button-${gift.id}`}
-                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
+                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-xl py-3 px-2 font-serif text-lg leading-none transition-all"
                         >
                           Reservar
                         </button>
                         <button
                           onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'pix' })}
-                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
+                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-xl py-3 px-2 font-serif text-lg leading-none transition-all"
                         >
                           PIX
                         </button>
