@@ -128,7 +128,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   const [isSavingGiftToMural, setIsSavingGiftToMural] = useState(false);
   const donorDebounceRef = useRef(null);
   const muralDonorDebounceRef = useRef(null);
-  const isReadOnly = !guest?.id;
+  const isReadOnly = !(guest && guest.id);
   const [hasLoadedRemoteData, setHasLoadedRemoteData] = useState(false);
   const [isWakingBackend, setIsWakingBackend] = useState(false);
   const [previewData, setPreviewData] = useState(() => {
@@ -297,7 +297,8 @@ export const GiftsAndVaquinhas = ({ guest }) => {
       setMuralDonorResults([]);
       setSelectedMuralDonor(null);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erro ao salvar presente no mural.');
+      const errorDetail = error && error.response && error.response.data && error.response.data.detail;
+      toast.error(errorDetail || 'Erro ao salvar presente no mural.');
     } finally {
       setIsSavingGiftToMural(false);
     }
@@ -346,9 +347,9 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     fetchData();
   }, [isReadOnly, acordarBackend, fetchData]);
 
-  const handleClaimGift = async (giftId, claimType, guestData = guest) => {
+  const handleClaimGift = async (giftId, claimType, guestData) => {
     const claimant = guestData || guest;
-    if (!claimant?.id || !claimant?.name) {
+    if (!claimant || !claimant.id || !claimant.name) {
       toast.info('Confirme sua presença para reservar um presente 💛');
       return;
     }
@@ -360,7 +361,8 @@ export const GiftsAndVaquinhas = ({ guest }) => {
         setPixModal(true);
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erro ao reservar presente');
+      const errorDetail = error && error.response && error.response.data && error.response.data.detail;
+      toast.error(errorDetail || 'Erro ao reservar presente');
     }
   };
 
@@ -684,7 +686,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
               ))
             )}
 
-            {weddingInfo?.pixKey && (
+            {weddingInfo && weddingInfo.pixKey && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -828,7 +830,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
 
               <div className="max-h-56 overflow-y-auto space-y-2 mb-6">
                 {donorResults.map((donor) => {
-                  const isSelected = selectedDonor?.id === donor.id && selectedDonor?.name === donor.name;
+                  const isSelected = selectedDonor && selectedDonor.id === donor.id && selectedDonor.name === donor.name;
                   return (
                     <button
                       key={`${donor.id}-${donor.name}`}
