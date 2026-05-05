@@ -131,7 +131,21 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   const isReadOnly = !(guest && guest.id);
   const [hasLoadedRemoteData, setHasLoadedRemoteData] = useState(false);
   const [isWakingBackend, setIsWakingBackend] = useState(false);
-  
+  const [previewData, setPreviewData] = useState(() => {
+    try {
+      const raw = localStorage.getItem('casamento_preview_data');
+      if (!raw) return { gifts: [], vaquinhas: [] };
+      const parsed = JSON.parse(raw);
+      return {
+        gifts: Array.isArray(parsed?.gifts) ? parsed.gifts.slice(0, 2) : [],
+        vaquinhas: Array.isArray(parsed?.vaquinhas) ? parsed.vaquinhas.slice(0, 2) : []
+      };
+    } catch {
+      return { gifts: [], vaquinhas: [] };
+    }
+  });
+
+  useEffect(() => { fetchData(); }, []);
 
   const normalizar = (str = '') =>
     str
@@ -300,13 +314,20 @@ export const GiftsAndVaquinhas = ({ guest }) => {
       setGifts(giftsRes.data);
       setVaquinhas(vaquinhasRes.data);
       setWeddingInfo(infoRes.data);
+      const snapshot = {
+        gifts: giftsRes.data.filter((gift) => !gift.isTaken).slice(0, 2),
+        vaquinhas: vaquinhasRes.data.slice(0, 2)
+      };
+      setPreviewData(snapshot);
+      localStorage.setItem('casamento_preview_data', JSON.stringify(snapshot));
       setHasLoadedRemoteData(true);
       return true;
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       return false;
     }
-  }, []);
+    setIsWakingBackend(false);
+  };
 
   const acordarBackend = useCallback(async () => {
     setIsWakingBackend(true);
@@ -369,7 +390,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   };
 
   const availableGifts = gifts.filter(g => !g.isTaken);
-  const carregandoPublico = isReadOnly && !hasLoadedRemoteData;
+  const mostrarPreview = isReadOnly && !hasLoadedRemoteData;
 
   return (
     <div className="min-h-screen bg-transparent py-16 px-6 relative overflow-hidden">
@@ -581,12 +602,34 @@ export const GiftsAndVaquinhas = ({ guest }) => {
         {/* Vaquinhas Tab */}
         {activeTab === 'vaquinhas' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto space-y-6">
-            {carregandoPublico ? (
-              <div className="text-center py-12">
-                <p className="text-slate-600 font-sans">
-                  {isWakingBackend ? 'Carregando vaquinhas...' : 'Preparando vaquinhas...'}
-                </p>
-              </div>
+            {mostrarPreview ? (
+              <>
+                {(previewData.vaquinhas.length > 0 ? previewData.vaquinhas : [{ id: 'preview-v1' }, { id: 'preview-v2' }]).map((vaquinha, index) => (
+                  <motion.div
+                    key={vaquinha.id || `preview-vaquinha-${index}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg p-8"
+                  >
+                    <h3 className="font-serif text-2xl text-wedding-blue mb-2">{vaquinha.title || 'Carregando vaquinha...'}</h3>
+                    {vaquinha.description && <p className="text-slate-600 mb-6">{vaquinha.description}</p>}
+                    <button
+                      onClick={acordarBackend}
+                      className="w-full bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-lg py-3 font-serif transition-all shadow-lg"
+                    >
+                      Contribuir
+                    </button>
+                  </motion.div>
+                ))}
+                <div className="flex justify-center mt-2">
+                  <button
+                    onClick={acordarBackend}
+                    className="bg-white/90 hover:bg-white text-wedding-blue border border-wedding-goldLight rounded-full px-8 py-3 font-serif transition-all shadow"
+                  >
+                    {isWakingBackend ? 'Carregando lista...' : 'Ver mais vaquinhas'}
+                  </button>
+                </div>
+              </>
             ) : vaquinhas.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-slate-500 font-sans">Nenhuma vaquinha disponível no momento</p>
