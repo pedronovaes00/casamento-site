@@ -1,12 +1,57 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gift, Heart, QrCode, Search, X, PartyPopper, PlusCircle } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import DonationModal from './DonationModal';
+import { giftCatalog } from '../data/giftCatalog';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+
+
+const compactarBusca = (str = '') => str.replace(/\s+/g, '');
+
+const getGiftSearchTerms = (gift) => [gift.name, ...(gift.aliases || [])];
+
+const levenshteinDistance = (a, b) => {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+
+  for (let i = 0; i < a.length; i += 1) {
+    const current = [i + 1];
+    for (let j = 0; j < b.length; j += 1) {
+      const insertCost = current[j] + 1;
+      const deleteCost = previous[j + 1] + 1;
+      const replaceCost = previous[j] + (a[i] === b[j] ? 0 : 1);
+      current.push(Math.min(insertCost, deleteCost, replaceCost));
+    }
+    previous.splice(0, previous.length, ...current);
+  }
+
+  return previous[b.length];
+};
+
+const getFuzzyLimit = (term) => {
+  if (term.length <= 4) return 1;
+  if (term.length <= 8) return 2;
+  return 3;
+};
+
+const hasFuzzyWordMatch = (query, term) => {
+  const queryWords = query.split(' ').filter(Boolean);
+  const termWords = term.split(' ').filter(Boolean);
+
+  return queryWords.some((queryWord) =>
+    termWords.some((termWord) => {
+      if (termWord.startsWith(queryWord) || queryWord.startsWith(termWord)) return true;
+      return levenshteinDistance(queryWord, termWord) <= getFuzzyLimit(queryWord);
+    })
+  );
+};
 
 // Modal de confirmação bonitinho
 const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, confirmLabel, icon }) => {
@@ -171,45 +216,88 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     muralDonorDebounceRef.current = setTimeout(() => buscarDoadorMural(muralDonorQuery.trim()), 350);
   }, [muralDonorQuery, buscarDoadorMural]);
 
-  const giftSuggestions = gifts
-    .filter((gift) => !gift.isTaken)
-    .map((gift) => {
-      const normalizedName = normalizarBusca(gift.name);
-      const compactName = normalizedName.replace(/\s+/g, '');
-      const normalizedQuery = normalizarBusca(giftSearchQuery);
-      const compactQuery = normalizedQuery.replace(/\s+/g, '');
-      const starts = normalizedName.startsWith(normalizedQuery) || compactName.startsWith(compactQuery);
-      const includes = normalizedName.includes(normalizedQuery) || compactName.includes(compactQuery);
-      return { gift, starts, includes };
-    })
-    .filter((entry) => {
-      if (!giftSearchQuery.trim()) return false;
-      return entry.starts || entry.includes;
-    })
-    .sort((a, b) => {
-      if (a.starts && !b.starts) return -1;
-      if (!a.starts && b.starts) return 1;
-      return a.gift.name.localeCompare(b.gift.name);
-    })
-    .slice(0, 6);
+  const normalizedGiftQuery = normalizarBusca(giftSearchQuery);
+  const compactGiftQuery = compactarBusca(normalizedGiftQuery);
 
-  const giftsMural = gifts.filter((gift) => gift.isTaken && gift.takenByName);
+  const giftSuggestions = useMemo(() => {
+    if (normalizedGiftQuery.length < 2) return [];
 
-  const canSaveMuralGift = selectedMuralDonor && selectedGiftSuggestion && !isSavingGiftToMural;
+    return giftCatalog
+      .map((catalogGift) => {
+        const rankedTerms = getGiftSearchTerms(catalogGift).map((term) => {
+          const normalizedTerm = normalizarBusca(term);
+          const compactTerm = compactarBusca(normalizedTerm);
+          const exact = normalizedTerm === normalizedGiftQuery || compactTerm === compactGiftQuery;
+          const starts = normalizedTerm.startsWith(normalizedGiftQuery) || compactTerm.startsWith(compactGiftQuery);
+          const includes = normalizedTerm.includes(normalizedGiftQuery) || compactTerm.includes(compactGiftQuery);
+          const fuzzy = hasFuzzyWordMatch(normalizedGiftQuery, normalizedTerm);
+
+          let score = 0;
+          if (exact) score = 100;
+          else if (starts) score = 80;
+          else if (includes) score = 60;
+          else if (fuzzy) score = 35;
+
+          return { exact, starts, includes, fuzzy, score, term: normalizedTerm };
+        });
+        const bestMatch = rankedTerms.sort((a, b) => b.score - a.score)[0];
+        return { gift: catalogGift, match: bestMatch };
+      })
+      .filter((entry) => entry.match.score > 0)
+      .sort((a, b) => {
+        if (b.match.score !== a.match.score) return b.match.score - a.match.score;
+        return a.gift.name.localeCompare(b.gift.name);
+      })
+      .slice(0, 8);
+  }, [compactGiftQuery, normalizarBusca, normalizedGiftQuery]);
+
+  const giftsMural = useMemo(
+    () => gifts.filter((gift) => gift.isTaken && gift.takenByName),
+    [gifts]
+  );
+
+  const selectedGiftAlreadyOnMural = useMemo(() => {
+    if (!selectedGiftSuggestion) return null;
+
+    const selectedGiftKey = compactarBusca(normalizarBusca(selectedGiftSuggestion.name));
+    return giftsMural.find((gift) => compactarBusca(normalizarBusca(gift.name)) === selectedGiftKey) || null;
+  }, [giftsMural, normalizarBusca, selectedGiftSuggestion]);
+
+  const canSaveMuralGift = Boolean(
+    selectedMuralDonor &&
+      selectedGiftSuggestion &&
+      !selectedGiftAlreadyOnMural &&
+      !isSavingGiftToMural
+  );
 
   const handleSaveGiftToMural = async () => {
     if (!selectedMuralDonor || !selectedGiftSuggestion) {
-      toast.error('Selecione nome e presente antes de salvar.');
+      toast.error('Selecione seu nome e uma sugestão de presente antes de salvar.');
       return;
     }
+
+    if (selectedGiftAlreadyOnMural) {
+      toast.error('Esse item já aparece no mural. Escolha outra sugestão para evitar repetição.');
+      return;
+    }
+
     try {
       setIsSavingGiftToMural(true);
-      await handleClaimGift(selectedGiftSuggestion.id, 'physical', selectedMuralDonor);
+      await axios.post(`${API}/gifts/mural`, {
+        name: selectedGiftSuggestion.name,
+        category: selectedGiftSuggestion.category,
+        guest_id: selectedMuralDonor.id,
+        guest_name: selectedMuralDonor.name,
+      });
+      toast.success('Presente registrado no mural com sucesso 💛');
+      await fetchData();
       setGiftSearchQuery('');
       setSelectedGiftSuggestion(null);
       setMuralDonorQuery('');
       setMuralDonorResults([]);
       setSelectedMuralDonor(null);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Erro ao salvar presente no mural.');
     } finally {
       setIsSavingGiftToMural(false);
     }
@@ -350,78 +438,84 @@ export const GiftsAndVaquinhas = ({ guest }) => {
 
         {/* Gifts Tab */}
         {activeTab === 'gifts' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mostrarPreview ? (
-              <>
-                {(previewData.gifts.length > 0 ? previewData.gifts : [{ id: 'preview-gift-1' }, { id: 'preview-gift-2' }]).map((gift, index) => (
-                  <motion.div
-                    key={gift.id || `preview-gift-${index}`}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg overflow-hidden"
-                  >
-                    {gift.imageUrl ? (
-                      <div className="aspect-video bg-wedding-stone overflow-hidden">
-                        <img src={gift.imageUrl} alt={gift.name} className="w-full h-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className="aspect-video bg-gradient-to-br from-wedding-cream to-white flex items-center justify-center">
-                        <Gift className="w-14 h-14 text-wedding-gold/70" />
-                      </div>
-                    )}
-                    <div className="p-6">
-                      <h3 className="font-serif text-xl text-wedding-blue mb-2">{gift.name || 'Carregando presente...'}</h3>
-                      {gift.price && <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>}
-                      <div className="flex gap-2">
-                        <button
-                          onClick={acordarBackend}
-                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
-                        >
-                          Reservar
-                        </button>
-                        <button
-                          onClick={acordarBackend}
-                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
-                        >
-                          PIX
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-                <div className="col-span-full flex justify-center mt-2">
-                  <button
-                    onClick={acordarBackend}
-                    className="bg-white/90 hover:bg-white text-wedding-blue border border-wedding-goldLight rounded-full px-8 py-3 font-serif transition-all shadow"
-                  >
-                    {isWakingBackend ? 'Carregando lista...' : 'Ver mais presentes'}
-                  </button>
+          <>
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-white/85 backdrop-blur-md rounded-2xl shadow-lg p-6 md:p-8 mb-8">
+            <h2 className="font-serif text-3xl text-slate-800 mb-2">Mural de Presentes</h2>
+            <p className="text-slate-600 mb-5">Busque seu nome, digite o presente que deseja dar, e confirme para adicionar ao mural.</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              <div className="md:col-span-1">
+                <label className="text-sm text-slate-500 block mb-2">Seu nome</label>
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input value={muralDonorQuery} onChange={(e) => {setMuralDonorQuery(e.target.value); setSelectedMuralDonor(null);}} className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-9 pr-3" placeholder="Digite seu nome" />
                 </div>
+                {isSearchingMuralDonor && <p className="text-xs text-slate-400 mt-1">Buscando...</p>}
                 <div className="space-y-1 mt-2 max-h-36 overflow-y-auto">
-                  {giftSuggestions.map(({ gift }) => (
-                    <button key={gift.id} onClick={() => { setSelectedGiftSuggestion(gift); setGiftSearchQuery(gift.name); }} className="w-full text-left rounded-lg px-3 py-2 bg-slate-50 hover:bg-slate-100 text-sm">{gift.name}</button>
+                  {muralDonorResults.map((donor) => (
+                    <button key={`${donor.id}-${donor.name}`} onClick={() => { setSelectedMuralDonor(donor); setMuralDonorQuery(donor.name); setMuralDonorResults([]); }} className="w-full text-left rounded-lg px-3 py-2 bg-slate-50 hover:bg-slate-100 text-sm">{donor.name}</button>
                   ))}
                 </div>
               </div>
-              <div className="md:col-span-1 flex items-end">
-                <button disabled={!canSaveMuralGift} onClick={handleSaveGiftToMural} className="w-full rounded-full border border-wedding-gold text-wedding-blue disabled:opacity-50 disabled:cursor-not-allowed hover:bg-wedding-cream py-3 px-4 font-serif transition-all">
-                  <PlusCircle className="w-4 h-4 inline mr-2" />{isSavingGiftToMural ? 'Salvando...' : 'Salvar no mural'}
+              <div className="md:col-span-1">
+                <label className="text-sm text-slate-500 block mb-2">Item do presente</label>
+                <div className="relative">
+                  <Gift className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input value={giftSearchQuery} onChange={(e) => { setGiftSearchQuery(e.target.value); setSelectedGiftSuggestion(null); }} className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-9 pr-3" placeholder="Ex: pano de chao" />
+                </div>
+                <AnimatePresence>
+                  {giftSuggestions.length > 0 && !selectedGiftSuggestion && (
+                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="space-y-1 mt-2 max-h-44 overflow-y-auto">
+                      {giftSuggestions.map(({ gift, match }) => (
+                        <button key={gift.id} onClick={() => { setSelectedGiftSuggestion(gift); setGiftSearchQuery(gift.name); }} className="w-full text-left rounded-lg px-3 py-2 bg-white/90 hover:bg-wedding-cream border border-slate-100 text-sm transition-all">
+                          <span className="font-medium text-slate-700">{gift.name}</span>
+                          <span className="block text-xs text-slate-400">{gift.category}{match.fuzzy && !match.includes && !match.starts ? ' · sugestão por similaridade' : ''}</span>
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                {giftSearchQuery.trim().length >= 2 && giftSuggestions.length === 0 && !selectedGiftSuggestion && (
+                  <p className="text-xs text-slate-400 mt-2">Nenhuma sugestão encontrada. Tente outro termo, como “panela”, “pano” ou “toalha”.</p>
+                )}
+                {selectedGiftSuggestion && !selectedGiftAlreadyOnMural && (
+                  <p className="text-xs text-wedding-blue mt-2">Selecionado: {selectedGiftSuggestion.name} · {selectedGiftSuggestion.category}</p>
+                )}
+                {selectedGiftAlreadyOnMural && (
+                  <p className="text-xs text-red-500 mt-2">Esse item já foi escolhido por {selectedGiftAlreadyOnMural.takenByName}. Escolha outra sugestão.</p>
+                )}
+              </div>
+              <div className="md:col-span-1 flex items-center md:items-end">
+                <button disabled={!canSaveMuralGift} onClick={handleSaveGiftToMural} className="w-full rounded-full border border-wedding-gold text-wedding-blue disabled:opacity-50 disabled:cursor-not-allowed hover:bg-wedding-cream py-3 px-4 font-serif transition-all inline-flex items-center justify-center gap-2 md:mt-7">
+                  <PlusCircle className="w-4 h-4" />{isSavingGiftToMural ? 'Salvando...' : 'Salvar no mural'}
                 </button>
               </div>
             </div>
+
+            <div className="mt-6">
+              <p className="text-sm uppercase tracking-wider text-slate-500 mb-3">Já confirmados no mural</p>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <AnimatePresence>
+                  {giftsMural.map((gift) => (
+                    <motion.div key={`mural-${gift.id}`} initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.98 }} transition={{ duration: 0.25 }} className="bg-white/90 rounded-2xl p-6 shadow-md border border-slate-100">
+                      <p className="text-xs uppercase tracking-wider text-wedding-gold font-semibold mb-2">{gift.takenByName}</p>
+                      <p className="font-serif text-2xl text-slate-800 leading-tight">{gift.name}</p>
+                      <PartyPopper className="w-5 h-5 text-wedding-gold mt-3" />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                {giftsMural.length === 0 && (
+                  <div className="col-span-full bg-white/70 rounded-xl border border-dashed border-slate-300 p-4 text-slate-500 text-sm">
+                    Ainda não há presentes confirmados no mural.
+                  </div>
+                )}
+              </motion.div>
+            </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 mb-10">
-            <AnimatePresence>
-              {giftsMural.map((gift) => (
-                <motion.div key={`mural-${gift.id}`} initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.98 }} transition={{ duration: 0.25 }} className="bg-white/90 rounded-2xl p-6 shadow-md border border-slate-100">
-                  <p className="text-xs uppercase tracking-wider text-wedding-gold font-semibold mb-2">{gift.takenByName}</p>
-                  <p className="font-serif text-2xl text-slate-800 leading-tight">{gift.name}</p>
-                  <PartyPopper className="w-5 h-5 text-wedding-gold mt-3" />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          <div className="mb-4 mt-2">
+            <h3 className="font-serif text-3xl text-slate-800">Sugestões de Presentes</h3>
+            <p className="text-slate-600">Escolha um item da lista para reservar.</p>
+          </div>
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             {carregandoPublico ? (
