@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gift, Heart, QrCode, Search, X } from 'lucide-react';
+import { Gift, Heart, QrCode, Search, X, PartyPopper, PlusCircle } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import DonationModal from './DonationModal';
@@ -74,7 +74,15 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   const [donorResults, setDonorResults] = useState([]);
   const [isSearchingDonor, setIsSearchingDonor] = useState(false);
   const [selectedDonor, setSelectedDonor] = useState(null);
+  const [muralDonorQuery, setMuralDonorQuery] = useState('');
+  const [muralDonorResults, setMuralDonorResults] = useState([]);
+  const [selectedMuralDonor, setSelectedMuralDonor] = useState(null);
+  const [isSearchingMuralDonor, setIsSearchingMuralDonor] = useState(false);
+  const [giftSearchQuery, setGiftSearchQuery] = useState('');
+  const [selectedGiftSuggestion, setSelectedGiftSuggestion] = useState(null);
+  const [isSavingGiftToMural, setIsSavingGiftToMural] = useState(false);
   const donorDebounceRef = useRef(null);
+  const muralDonorDebounceRef = useRef(null);
   const isReadOnly = !guest?.id;
   const [hasLoadedRemoteData, setHasLoadedRemoteData] = useState(false);
   const [isWakingBackend, setIsWakingBackend] = useState(false);
@@ -100,6 +108,26 @@ export const GiftsAndVaquinhas = ({ guest }) => {
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .trim();
+
+  const normalizarBusca = useCallback((str = '') => normalizar(str).replace(/\s+/g, ' ').trim(), []);
+
+  const buscarDoadorMural = useCallback(async (termo) => {
+    setIsSearchingMuralDonor(true);
+    try {
+      const res = await axios.get(`${API}/grupos/buscar?nome=${encodeURIComponent(termo)}`);
+      const termoNormalizado = normalizarBusca(termo);
+      const encontrados = res.data.flatMap((grupo) =>
+        grupo.membros
+          .filter((membro) => normalizarBusca(membro.nome).includes(termoNormalizado))
+          .map((membro) => ({ id: grupo.id, nomeGrupo: grupo.nomeGrupo, name: membro.nome }))
+      );
+      setMuralDonorResults(encontrados);
+    } catch {
+      toast.error('Erro ao buscar convidado para o mural.');
+    } finally {
+      setIsSearchingMuralDonor(false);
+    }
+  }, [normalizarBusca]);
 
   const buscarDoador = useCallback(async (termo) => {
     setIsSearchingDonor(true);
@@ -134,7 +162,60 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     donorDebounceRef.current = setTimeout(() => buscarDoador(donorQuery.trim()), 350);
   }, [donorQuery, identifyModal.isOpen, buscarDoador]);
 
-  const fetchData = async () => {
+  useEffect(() => {
+    if (muralDonorQuery.trim().length < 2) {
+      setMuralDonorResults([]);
+      return;
+    }
+    clearTimeout(muralDonorDebounceRef.current);
+    muralDonorDebounceRef.current = setTimeout(() => buscarDoadorMural(muralDonorQuery.trim()), 350);
+  }, [muralDonorQuery, buscarDoadorMural]);
+
+  const giftSuggestions = gifts
+    .filter((gift) => !gift.isTaken)
+    .map((gift) => {
+      const normalizedName = normalizarBusca(gift.name);
+      const compactName = normalizedName.replace(/\s+/g, '');
+      const normalizedQuery = normalizarBusca(giftSearchQuery);
+      const compactQuery = normalizedQuery.replace(/\s+/g, '');
+      const starts = normalizedName.startsWith(normalizedQuery) || compactName.startsWith(compactQuery);
+      const includes = normalizedName.includes(normalizedQuery) || compactName.includes(compactQuery);
+      return { gift, starts, includes };
+    })
+    .filter((entry) => {
+      if (!giftSearchQuery.trim()) return false;
+      return entry.starts || entry.includes;
+    })
+    .sort((a, b) => {
+      if (a.starts && !b.starts) return -1;
+      if (!a.starts && b.starts) return 1;
+      return a.gift.name.localeCompare(b.gift.name);
+    })
+    .slice(0, 6);
+
+  const giftsMural = gifts.filter((gift) => gift.isTaken && gift.takenByName);
+
+  const canSaveMuralGift = selectedMuralDonor && selectedGiftSuggestion && !isSavingGiftToMural;
+
+  const handleSaveGiftToMural = async () => {
+    if (!selectedMuralDonor || !selectedGiftSuggestion) {
+      toast.error('Selecione nome e presente antes de salvar.');
+      return;
+    }
+    try {
+      setIsSavingGiftToMural(true);
+      await handleClaimGift(selectedGiftSuggestion.id, 'physical', selectedMuralDonor);
+      setGiftSearchQuery('');
+      setSelectedGiftSuggestion(null);
+      setMuralDonorQuery('');
+      setMuralDonorResults([]);
+      setSelectedMuralDonor(null);
+    } finally {
+      setIsSavingGiftToMural(false);
+    }
+  };
+
+  const fetchData = useCallback(async () => {
     try {
       const [giftsRes, vaquinhasRes, infoRes] = await Promise.all([
         axios.get(`${API}/gifts`),
@@ -159,7 +240,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     setIsWakingBackend(false);
   };
 
-  const acordarBackend = async () => {
+  const acordarBackend = useCallback(async () => {
     setIsWakingBackend(true);
     const primeiraTentativa = await fetchData();
     if (!primeiraTentativa) {
@@ -167,7 +248,15 @@ export const GiftsAndVaquinhas = ({ guest }) => {
       await fetchData();
     }
     setIsWakingBackend(false);
-  };
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (isReadOnly) {
+      acordarBackend();
+      return;
+    }
+    fetchData();
+  }, [isReadOnly, acordarBackend, fetchData]);
 
   const handleClaimGift = async (giftId, claimType, guestData = guest) => {
     const claimant = guestData || guest;
@@ -308,7 +397,39 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                     {isWakingBackend ? 'Carregando lista...' : 'Ver mais presentes'}
                   </button>
                 </div>
-              </>
+                <div className="space-y-1 mt-2 max-h-36 overflow-y-auto">
+                  {giftSuggestions.map(({ gift }) => (
+                    <button key={gift.id} onClick={() => { setSelectedGiftSuggestion(gift); setGiftSearchQuery(gift.name); }} className="w-full text-left rounded-lg px-3 py-2 bg-slate-50 hover:bg-slate-100 text-sm">{gift.name}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="md:col-span-1 flex items-end">
+                <button disabled={!canSaveMuralGift} onClick={handleSaveGiftToMural} className="w-full rounded-full border border-wedding-gold text-wedding-blue disabled:opacity-50 disabled:cursor-not-allowed hover:bg-wedding-cream py-3 px-4 font-serif transition-all">
+                  <PlusCircle className="w-4 h-4 inline mr-2" />{isSavingGiftToMural ? 'Salvando...' : 'Salvar no mural'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 mb-10">
+            <AnimatePresence>
+              {giftsMural.map((gift) => (
+                <motion.div key={`mural-${gift.id}`} initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.98 }} transition={{ duration: 0.25 }} className="bg-white/90 rounded-2xl p-6 shadow-md border border-slate-100">
+                  <p className="text-xs uppercase tracking-wider text-wedding-gold font-semibold mb-2">{gift.takenByName}</p>
+                  <p className="font-serif text-2xl text-slate-800 leading-tight">{gift.name}</p>
+                  <PartyPopper className="w-5 h-5 text-wedding-gold mt-3" />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            {carregandoPublico ? (
+              <div className="col-span-full text-center py-12">
+                <p className="text-slate-600 font-sans">
+                  {isWakingBackend ? 'Carregando presentes...' : 'Preparando lista de presentes...'}
+                </p>
+              </div>
             ) : availableGifts.length === 0 ? (
               <div className="col-span-full text-center py-12">
                 <p className="text-slate-500 font-sans">Nenhum presente disponível no momento</p>
@@ -319,64 +440,67 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                   key={gift.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow"
+                  className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow w-full max-w-[360px] mx-auto"
                   data-testid={`gift-card-${gift.id}`}
                 >
                   {gift.imageUrl && (
-                    <div className="aspect-video bg-wedding-stone overflow-hidden">
+                    <div className="h-52 bg-wedding-stone overflow-hidden">
                       <img src={gift.imageUrl} alt={gift.name} className="w-full h-full object-cover" />
                     </div>
                   )}
-                  <div className="p-6">
-                    <h3 className="font-serif text-xl text-wedding-blue mb-2">{gift.name}</h3>
+                  <div className="p-6 md:p-7 text-center">
+                    <h3 className="font-serif text-3xl text-wedding-blue mb-2 leading-tight text-center">{gift.name}</h3>
                     {gift.description && (
                       <a
                         href={gift.description}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-wedding-blue hover:underline mb-4"
+                        className="inline-flex items-center justify-center gap-1 text-base text-wedding-blue hover:underline mb-4 mx-auto"
                       >
                         🔗 Ver produto
                       </a>
                     )}
-                    {gift.price && <p className="text-wedding-gold font-semibold mb-4">{gift.price}</p>}
+                    {gift.price && <p className="text-wedding-gold font-bold text-4xl mb-6 tracking-tight text-center">{gift.price}</p>}
+                    <div className="w-full">
                     {isReadOnly ? (
-                      <div className="flex gap-2">
+                      <div className="flex gap-3 w-full">
                         <button
                           onClick={() => openIdentifyModal(gift.id, 'physical')}
-                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
+                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-xl py-3 px-2 font-serif text-lg leading-none transition-all"
                         >
                           Reservar
                         </button>
                         <button
                           onClick={() => openIdentifyModal(gift.id, 'pix')}
-                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
+                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-xl py-3 px-2 font-serif text-lg leading-none transition-all"
                         >
                           PIX
                         </button>
                       </div>
                     ) : (
-                      <div className="flex gap-2">
+                      <div className="flex gap-3 w-full">
                         <button
                           onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'physical' })}
                           data-testid={`claim-gift-button-${gift.id}`}
-                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
+                          className="flex-1 min-h-[52px] bg-wedding-sage text-white hover:bg-wedding-sage/80 rounded-xl py-3 px-2 font-serif text-lg leading-none transition-all"
                         >
                           Reservar
                         </button>
                         <button
                           onClick={() => setConfirmModal({ isOpen: true, giftId: gift.id, type: 'pix' })}
-                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-lg py-3 px-2 font-serif text-lg leading-none transition-all"
+                          className="flex-1 min-h-[52px] bg-wedding-gold/80 text-white hover:bg-wedding-gold rounded-xl py-3 px-2 font-serif text-lg leading-none transition-all"
                         >
                           PIX
                         </button>
                       </div>
                     )}
+                    </div>
                   </div>
                 </motion.div>
               ))
             )}
           </motion.div>
+          </>
         )}
 
         {/* Vaquinhas Tab */}
