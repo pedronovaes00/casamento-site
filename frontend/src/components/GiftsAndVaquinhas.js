@@ -145,8 +145,6 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     }
   });
 
-  useEffect(() => { fetchData(); }, []);
-
   const normalizar = (str = '') =>
     str
       .normalize('NFD')
@@ -195,6 +193,49 @@ export const GiftsAndVaquinhas = ({ guest }) => {
       setIsSearchingDonor(false);
     }
   }, []);
+
+  // FIX 1: fetchData declarado com useCallback e fechado corretamente
+  const fetchData = useCallback(async () => {
+    try {
+      const [giftsRes, vaquinhasRes, infoRes] = await Promise.all([
+        axios.get(`${API}/gifts`),
+        axios.get(`${API}/vaquinhas`),
+        axios.get(`${API}/wedding-info`)
+      ]);
+      setGifts(giftsRes.data);
+      setVaquinhas(vaquinhasRes.data);
+      setWeddingInfo(infoRes.data);
+      const snapshot = {
+        gifts: giftsRes.data.filter((gift) => !gift.isTaken).slice(0, 2),
+        vaquinhas: vaquinhasRes.data.slice(0, 2)
+      };
+      setPreviewData(snapshot);
+      localStorage.setItem('casamento_preview_data', JSON.stringify(snapshot));
+      setHasLoadedRemoteData(true);
+      return true;
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      return false;
+    }
+  }, []);
+
+  const acordarBackend = useCallback(async () => {
+    setIsWakingBackend(true);
+    const primeiraTentativa = await fetchData();
+    if (!primeiraTentativa) {
+      await new Promise((resolve) => setTimeout(resolve, 1800));
+      await fetchData();
+    }
+    setIsWakingBackend(false);
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (isReadOnly) {
+      acordarBackend();
+      return;
+    }
+    fetchData();
+  }, [isReadOnly, acordarBackend, fetchData]);
 
   useEffect(() => {
     if (!identifyModal.isOpen) return;
@@ -304,48 +345,6 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     }
   };
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [giftsRes, vaquinhasRes, infoRes] = await Promise.all([
-        axios.get(`${API}/gifts`),
-        axios.get(`${API}/vaquinhas`),
-        axios.get(`${API}/wedding-info`)
-      ]);
-      setGifts(giftsRes.data);
-      setVaquinhas(vaquinhasRes.data);
-      setWeddingInfo(infoRes.data);
-      const snapshot = {
-        gifts: giftsRes.data.filter((gift) => !gift.isTaken).slice(0, 2),
-        vaquinhas: vaquinhasRes.data.slice(0, 2)
-      };
-      setPreviewData(snapshot);
-      localStorage.setItem('casamento_preview_data', JSON.stringify(snapshot));
-      setHasLoadedRemoteData(true);
-      return true;
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      return false;
-    }
-  };
-
-  const acordarBackend = useCallback(async () => {
-    setIsWakingBackend(true);
-    const primeiraTentativa = await fetchData();
-    if (!primeiraTentativa) {
-      await new Promise((resolve) => setTimeout(resolve, 1800));
-      await fetchData();
-    }
-    setIsWakingBackend(false);
-  }, [fetchData]);
-
-  useEffect(() => {
-    if (isReadOnly) {
-      acordarBackend();
-      return;
-    }
-    fetchData();
-  }, [isReadOnly, acordarBackend, fetchData]);
-
   function handleClaimGift(giftId, claimType, guestData) {
     var claimant = guestData || guest;
     if (!claimant || !claimant.id || !claimant.name) {
@@ -396,6 +395,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   };
 
   const availableGifts = gifts.filter(g => !g.isTaken);
+  // FIX 2: variável correta para controle de loading/preview
   const mostrarPreview = isReadOnly && !hasLoadedRemoteData;
 
   return (
@@ -483,7 +483,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                   )}
                 </AnimatePresence>
                 {giftSearchQuery.trim().length >= 2 && giftSuggestions.length === 0 && !selectedGiftSuggestion && (
-                  <p className="text-xs text-slate-400 mt-2">Nenhuma sugestão encontrada. Tente outro termo, como “panela”, “pano” ou “toalha”.</p>
+                  <p className="text-xs text-slate-400 mt-2">Nenhuma sugestão encontrada. Tente outro termo, como "panela", "pano" ou "toalha".</p>
                 )}
                 {selectedGiftSuggestion && !selectedGiftAlreadyOnMural && (
                   <p className="text-xs text-wedding-blue mt-2">Selecionado: {selectedGiftSuggestion.name} · {selectedGiftSuggestion.category}</p>
@@ -526,7 +526,8 @@ export const GiftsAndVaquinhas = ({ guest }) => {
           </div>
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-            {carregandoPublico ? (
+            {/* FIX 3: substituído carregandoPublico por mostrarPreview */}
+            {mostrarPreview ? (
               <div className="col-span-full text-center py-12">
                 <p className="text-slate-600 font-sans">
                   {isWakingBackend ? 'Carregando presentes...' : 'Preparando lista de presentes...'}
