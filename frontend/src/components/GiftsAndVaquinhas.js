@@ -347,24 +347,31 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     fetchData();
   }, [isReadOnly, acordarBackend, fetchData]);
 
-  const handleClaimGift = async (giftId, claimType, guestData) => {
-    const claimant = guestData || guest;
+  function handleClaimGift(giftId, claimType, guestData) {
+    var claimant = guestData || guest;
     if (!claimant || !claimant.id || !claimant.name) {
       toast.info('Confirme sua presença para reservar um presente 💛');
-      return;
+      return Promise.resolve();
     }
-    try {
-      await axios.put(`${API}/gifts/${giftId}/claim?guest_id=${claimant.id}&guest_name=${encodeURIComponent(claimant.name)}&claim_type=${claimType}`);
-      toast.success(claimType === 'pix' ? 'Presente reservado! Agora faça o PIX 💛' : 'Presente reservado com sucesso!');
-      fetchData();
-      if (claimType === 'pix') {
-        setPixModal(true);
-      }
-    } catch (error) {
-      const errorDetail = error && error.response && error.response.data && error.response.data.detail;
-      toast.error(errorDetail || 'Erro ao reservar presente');
-    }
-  };
+
+    var claimUrl = API + '/gifts/' + giftId
+      + '/claim?guest_id=' + claimant.id
+      + '&guest_name=' + encodeURIComponent(claimant.name)
+      + '&claim_type=' + claimType;
+
+    return axios.put(claimUrl)
+      .then(function () {
+        toast.success(claimType === 'pix' ? 'Presente reservado! Agora faça o PIX 💛' : 'Presente reservado com sucesso!');
+        fetchData();
+        if (claimType === 'pix') {
+          setPixModal(true);
+        }
+      })
+      .catch(function (error) {
+        var errorDetail = error && error.response && error.response.data && error.response.data.detail;
+        toast.error(errorDetail || 'Erro ao reservar presente');
+      });
+  }
 
   const handleConfirm = () => {
     const { giftId, type } = confirmModal;
