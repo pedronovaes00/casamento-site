@@ -69,6 +69,10 @@ def normalize(text: str) -> str:
         if unicodedata.category(c) != 'Mn'
     )
 
+def normalize_gift_key(text: str) -> str:
+    """Gera uma chave compacta para comparar presentes do mural sem acentos/espaços."""
+    return re.sub(r'\s+', '', normalize(text or '').strip())
+
 @api_router.get("/uploads/{filename}")
 async def serve_upload(filename: str):
     file_path = UPLOAD_DIR / filename
@@ -135,6 +139,12 @@ class GiftCreate(BaseModel):
     description: Optional[str] = None
     imageUrl: Optional[str] = None
     price: Optional[str] = None
+
+class MuralGiftCreate(BaseModel):
+    name: str
+    category: Optional[str] = None
+    guest_id: str
+    guest_name: str
 
 class Gift(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -385,6 +395,33 @@ async def get_gifts():
 @api_router.post("/gifts", response_model=Gift)
 async def create_gift(gift_input: GiftCreate, admin: dict = Depends(verify_admin_token)):
     gift_obj = Gift(**gift_input.model_dump())
+    doc = gift_obj.model_dump()
+    await db.gifts.insert_one(doc)
+    return gift_obj
+
+@api_router.post("/gifts/mural", response_model=Gift)
+async def create_mural_gift(gift_input: MuralGiftCreate):
+    gift_name = gift_input.name.strip()
+    guest_name = gift_input.guest_name.strip()
+
+    if len(gift_name) < 2:
+        raise HTTPException(status_code=400, detail="Informe um presente válido")
+    if len(guest_name) < 2 or not gift_input.guest_id.strip():
+        raise HTTPException(status_code=400, detail="Selecione um convidado válido")
+
+    gift_key = normalize_gift_key(gift_name)
+    taken_gifts = await db.gifts.find({"isTaken": True}, {"_id": 0, "name": 1}).to_list(1000)
+    if any(normalize_gift_key(gift.get("name", "")) == gift_key for gift in taken_gifts):
+        raise HTTPException(status_code=400, detail="Esse presente já aparece no mural")
+
+    gift_obj = Gift(
+        name=gift_name,
+        description=gift_input.category,
+        isTaken=True,
+        takenBy=gift_input.guest_id.strip(),
+        takenByName=guest_name,
+        claimType="mural"
+    )
     doc = gift_obj.model_dump()
     await db.gifts.insert_one(doc)
     return gift_obj
