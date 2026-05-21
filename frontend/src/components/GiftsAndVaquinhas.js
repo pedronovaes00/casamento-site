@@ -337,10 +337,12 @@ export const GiftsAndVaquinhas = ({ guest }) => {
       };
 
       const muralUrls = [
+        `${API}/mural-gifts`,
+        `${API}/mural-gifts/`,
         `${API}/gifts/mural`,
         `${API}/gifts/mural/`,
-        `${BACKEND_URL}/gifts/mural`,
-        `${BACKEND_URL}/gifts/mural/`
+        `${BACKEND_URL}/api/mural-gifts`,
+        `${BACKEND_URL}/api/mural-gifts/`
       ];
 
       let lastError = null;
