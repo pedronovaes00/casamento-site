@@ -249,13 +249,21 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   }, [donorQuery, identifyModal.isOpen, buscarDoador]);
 
   useEffect(() => {
-    if (muralDonorQuery.trim().length < 2) {
+    const query = muralDonorQuery.trim();
+
+    if (selectedMuralDonor && query === selectedMuralDonor.name) {
       setMuralDonorResults([]);
       return;
     }
+
+    if (query.length < 2) {
+      setMuralDonorResults([]);
+      return;
+    }
+
     clearTimeout(muralDonorDebounceRef.current);
-    muralDonorDebounceRef.current = setTimeout(() => buscarDoadorMural(muralDonorQuery.trim()), 350);
-  }, [muralDonorQuery, buscarDoadorMural]);
+    muralDonorDebounceRef.current = setTimeout(() => buscarDoadorMural(query), 350);
+  }, [muralDonorQuery, selectedMuralDonor, buscarDoadorMural]);
 
   const normalizedGiftQuery = normalizarBusca(giftSearchQuery);
   const compactGiftQuery = compactarBusca(normalizedGiftQuery);
@@ -293,7 +301,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   }, [compactGiftQuery, normalizarBusca, normalizedGiftQuery]);
 
   const giftsMural = useMemo(
-    () => gifts.filter((gift) => gift.isTaken && gift.takenByName),
+    () => gifts.filter((gift) => gift.isTaken && gift.takenByName && gift.claimType === 'mural' && gift.muralValidated !== false),
     [gifts]
   );
 

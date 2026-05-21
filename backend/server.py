@@ -401,6 +401,7 @@ async def create_gift(gift_input: GiftCreate, admin: dict = Depends(verify_admin
     return gift_obj
 
 @api_router.post("/gifts/mural", response_model=Gift)
+@api_router.post("/gifts/mural/", response_model=Gift, include_in_schema=False)
 async def create_mural_gift(gift_input: MuralGiftCreate):
     gift_name = gift_input.name.strip()
     guest_name = gift_input.guest_name.strip()
