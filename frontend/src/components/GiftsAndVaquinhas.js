@@ -336,14 +336,30 @@ export const GiftsAndVaquinhas = ({ guest }) => {
         guest_name: selectedMuralDonor.name,
       };
 
-      try {
-        await axios.post(`${API}/gifts/mural`, payload);
-      } catch (error) {
-        if (error?.response?.status === 405) {
-          await axios.post(`${API}/gifts/mural/`, payload);
-        } else {
-          throw error;
+      const muralUrls = [
+        `${API}/gifts/mural`,
+        `${API}/gifts/mural/`,
+        `${BACKEND_URL}/gifts/mural`,
+        `${BACKEND_URL}/gifts/mural/`
+      ];
+
+      let lastError = null;
+      for (const url of muralUrls) {
+        try {
+          await axios.post(url, payload);
+          lastError = null;
+          break;
+        } catch (error) {
+          lastError = error;
+          const status = error?.response?.status;
+          if (status !== 404 && status !== 405) {
+            throw error;
+          }
         }
+      }
+
+      if (lastError) {
+        throw lastError;
       }
       toast.success('Presente registrado no mural com sucesso 💛');
       await fetchData();

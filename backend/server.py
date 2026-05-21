@@ -411,11 +411,6 @@ async def create_mural_gift(gift_input: MuralGiftCreate):
     if len(guest_name) < 2 or not gift_input.guest_id.strip():
         raise HTTPException(status_code=400, detail="Selecione um convidado válido")
 
-    gift_key = normalize_gift_key(gift_name)
-    taken_gifts = await db.gifts.find({"isTaken": True}, {"_id": 0, "name": 1}).to_list(1000)
-    if any(normalize_gift_key(gift.get("name", "")) == gift_key for gift in taken_gifts):
-        raise HTTPException(status_code=400, detail="Esse presente já aparece no mural")
-
     gift_obj = Gift(
         name=gift_name,
         description=gift_input.category,
