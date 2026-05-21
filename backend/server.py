@@ -157,6 +157,7 @@ class Gift(BaseModel):
     takenBy: Optional[str] = None
     takenByName: Optional[str] = None
     claimType: Optional[str] = None
+    muralValidated: bool = True
 
 class VaquinhaCreate(BaseModel):
     title: str
@@ -420,7 +421,8 @@ async def create_mural_gift(gift_input: MuralGiftCreate):
         isTaken=True,
         takenBy=gift_input.guest_id.strip(),
         takenByName=guest_name,
-        claimType="mural"
+        claimType="mural",
+        muralValidated=False
     )
     doc = gift_obj.model_dump()
     await db.gifts.insert_one(doc)
@@ -438,6 +440,20 @@ async def claim_gift(gift_id: str, guest_id: str, guest_name: str, claim_type: s
         {"$set": {"isTaken": True, "takenBy": guest_id, "takenByName": guest_name, "claimType": claim_type}}
     )
     return {"message": "Presente reservado com sucesso"}
+
+
+
+@api_router.put("/gifts/{gift_id}/validate", response_model=Gift)
+async def validate_mural_gift(gift_id: str, admin: dict = Depends(verify_admin_token)):
+    gift = await db.gifts.find_one({"id": gift_id}, {"_id": 0})
+    if not gift:
+        raise HTTPException(status_code=404, detail="Presente não encontrado")
+    if gift.get("claimType") != "mural":
+        raise HTTPException(status_code=400, detail="Somente presentes do mural podem ser validados")
+
+    await db.gifts.update_one({"id": gift_id}, {"$set": {"muralValidated": True}})
+    updated = await db.gifts.find_one({"id": gift_id}, {"_id": 0})
+    return updated
 
 @api_router.delete("/gifts/{gift_id}/claim")
 async def unclaim_gift(gift_id: str, admin: dict = Depends(verify_admin_token)):
