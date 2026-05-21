@@ -340,7 +340,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
         await axios.post(`${API}/gifts/mural`, payload);
       } catch (error) {
         if (error?.response?.status === 405) {
-          await axios.put(`${API}/gifts/mural`, payload);
+          await axios.post(`${API}/gifts/mural/`, payload);
         } else {
           throw error;
         }
