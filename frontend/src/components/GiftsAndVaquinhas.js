@@ -9,6 +9,12 @@ import { giftCatalog } from '../data/giftCatalog';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+if (typeof window !== 'undefined') {
+  // Log temporário para diagnóstico em produção
+  console.info('[MURAL_DEBUG] BACKEND_URL:', BACKEND_URL);
+  console.info('[MURAL_DEBUG] API:', API);
+}
+
 
 const compactarBusca = (str = '') => str.replace(/\s+/g, '');
 
@@ -249,13 +255,21 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   }, [donorQuery, identifyModal.isOpen, buscarDoador]);
 
   useEffect(() => {
-    if (muralDonorQuery.trim().length < 2) {
+    const query = muralDonorQuery.trim();
+
+    if (selectedMuralDonor && query === selectedMuralDonor.name) {
       setMuralDonorResults([]);
       return;
     }
+
+    if (query.length < 2) {
+      setMuralDonorResults([]);
+      return;
+    }
+
     clearTimeout(muralDonorDebounceRef.current);
-    muralDonorDebounceRef.current = setTimeout(() => buscarDoadorMural(muralDonorQuery.trim()), 350);
-  }, [muralDonorQuery, buscarDoadorMural]);
+    muralDonorDebounceRef.current = setTimeout(() => buscarDoadorMural(query), 350);
+  }, [muralDonorQuery, selectedMuralDonor, buscarDoadorMural]);
 
   const normalizedGiftQuery = normalizarBusca(giftSearchQuery);
   const compactGiftQuery = compactarBusca(normalizedGiftQuery);
@@ -293,43 +307,68 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   }, [compactGiftQuery, normalizarBusca, normalizedGiftQuery]);
 
   const giftsMural = useMemo(
-    () => gifts.filter((gift) => gift.isTaken && gift.takenByName),
+    () => gifts.filter((gift) => gift.isTaken && gift.takenByName && gift.claimType === 'mural' && gift.muralValidated !== false),
     [gifts]
   );
 
-  const selectedGiftAlreadyOnMural = useMemo(() => {
-    if (!selectedGiftSuggestion) return null;
+  const muralGiftNameToSave = selectedGiftSuggestion?.name || giftSearchQuery.trim();
 
-    const selectedGiftKey = compactarBusca(normalizarBusca(selectedGiftSuggestion.name));
-    return giftsMural.find((gift) => compactarBusca(normalizarBusca(gift.name)) === selectedGiftKey) || null;
-  }, [giftsMural, normalizarBusca, selectedGiftSuggestion]);
+  const muralGiftCategoryToSave = selectedGiftSuggestion?.category || 'Item livre';
+
+  const typedGiftAlreadyOnMural = useMemo(() => {
+    if (!muralGiftNameToSave) return null;
+    const typedGiftKey = compactarBusca(normalizarBusca(muralGiftNameToSave));
+    return giftsMural.find((gift) => compactarBusca(normalizarBusca(gift.name)) === typedGiftKey) || null;
+  }, [giftsMural, muralGiftNameToSave, normalizarBusca]);
 
   const canSaveMuralGift = Boolean(
     selectedMuralDonor &&
-      selectedGiftSuggestion &&
-      !selectedGiftAlreadyOnMural &&
+      muralGiftNameToSave.length >= 2 &&
       !isSavingGiftToMural
   );
 
   const handleSaveGiftToMural = async () => {
-    if (!selectedMuralDonor || !selectedGiftSuggestion) {
-      toast.error('Selecione seu nome e uma sugestão de presente antes de salvar.');
-      return;
-    }
-
-    if (selectedGiftAlreadyOnMural) {
-      toast.error('Esse item já aparece no mural. Escolha outra sugestão para evitar repetição.');
+    if (!selectedMuralDonor || muralGiftNameToSave.length < 2) {
+      toast.error('Selecione seu nome e informe um presente válido antes de salvar.');
       return;
     }
 
     try {
       setIsSavingGiftToMural(true);
-      await axios.post(`${API}/gifts/mural`, {
-        name: selectedGiftSuggestion.name,
-        category: selectedGiftSuggestion.category,
+      const payload = {
+        name: muralGiftNameToSave,
+        category: muralGiftCategoryToSave,
         guest_id: selectedMuralDonor.id,
         guest_name: selectedMuralDonor.name,
-      });
+      };
+
+      const muralUrls = [
+        `${API}/mural-gifts`,
+        `${API}/mural-gifts/`,
+        `${API}/gifts/mural`,
+        `${API}/gifts/mural/`,
+        `${BACKEND_URL}/api/mural-gifts`,
+        `${BACKEND_URL}/api/mural-gifts/`
+      ];
+
+      let lastError = null;
+      for (const url of muralUrls) {
+        try {
+          await axios.post(url, payload);
+          lastError = null;
+          break;
+        } catch (error) {
+          lastError = error;
+          const status = error?.response?.status;
+          if (status !== 404 && status !== 405) {
+            throw error;
+          }
+        }
+      }
+
+      if (lastError) {
+        throw lastError;
+      }
       toast.success('Presente registrado no mural com sucesso 💛');
       await fetchData();
       setGiftSearchQuery('');
@@ -485,11 +524,17 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                 {giftSearchQuery.trim().length >= 2 && giftSuggestions.length === 0 && !selectedGiftSuggestion && (
                   <p className="text-xs text-slate-400 mt-2">Nenhuma sugestão encontrada. Tente outro termo, como "panela", "pano" ou "toalha".</p>
                 )}
-                {selectedGiftSuggestion && !selectedGiftAlreadyOnMural && (
+                {selectedGiftSuggestion && !typedGiftAlreadyOnMural && (
                   <p className="text-xs text-wedding-blue mt-2">Selecionado: {selectedGiftSuggestion.name} · {selectedGiftSuggestion.category}</p>
                 )}
-                {selectedGiftAlreadyOnMural && (
-                  <p className="text-xs text-red-500 mt-2">Esse item já foi escolhido por {selectedGiftAlreadyOnMural.takenByName}. Escolha outra sugestão.</p>
+                {!selectedGiftSuggestion && giftSearchQuery.trim().length >= 2 && !typedGiftAlreadyOnMural && (
+                  <p className="text-xs text-slate-500 mt-2">Item livre: será salvo exatamente como digitado.</p>
+                )}
+                {typedGiftAlreadyOnMural && (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                    Atenção: esse item já aparece no mural (por {typedGiftAlreadyOnMural.takenByName}).
+                    Você ainda pode salvar mesmo assim, se quiser repetir o presente.
+                  </div>
                 )}
               </div>
               <div className="md:col-span-1 flex items-center md:items-end">
@@ -500,20 +545,25 @@ export const GiftsAndVaquinhas = ({ guest }) => {
             </div>
 
             <div className="mt-6">
-              <p className="text-sm uppercase tracking-wider text-slate-500 mb-3">Já confirmados no mural</p>
+              <p className="text-sm uppercase tracking-wider text-slate-500 mb-3">Presentes no mural</p>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <AnimatePresence>
-                  {giftsMural.map((gift) => (
-                    <motion.div key={`mural-${gift.id}`} initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.98 }} transition={{ duration: 0.25 }} className="bg-white/90 rounded-2xl p-6 shadow-md border border-slate-100">
+                  {gifts.filter((gift) => gift.isTaken && gift.takenByName && gift.claimType === 'mural').map((gift) => (
+                    <motion.div key={`mural-${gift.id}`} initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.98 }} transition={{ duration: 0.25 }} className="bg-white/90 rounded-2xl p-6 shadow-md border border-slate-100 relative">
+                      {gift.muralValidated === false && (
+                        <span className="absolute top-3 right-3 rounded-full bg-amber-100 text-amber-700 text-[10px] px-2 py-1 font-semibold uppercase tracking-wide">
+                          Em avaliação
+                        </span>
+                      )}
                       <p className="text-xs uppercase tracking-wider text-wedding-gold font-semibold mb-2">{gift.takenByName}</p>
                       <p className="font-serif text-2xl text-slate-800 leading-tight">{gift.name}</p>
                       <PartyPopper className="w-5 h-5 text-wedding-gold mt-3" />
                     </motion.div>
                   ))}
                 </AnimatePresence>
-                {giftsMural.length === 0 && (
+                {gifts.filter((gift) => gift.isTaken && gift.takenByName && gift.claimType === 'mural').length === 0 && (
                   <div className="col-span-full bg-white/70 rounded-xl border border-dashed border-slate-300 p-4 text-slate-500 text-sm">
-                    Ainda não há presentes confirmados no mural.
+                    Ainda não há presentes no mural.
                   </div>
                 )}
               </motion.div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Gift, Plus, Trash2, CheckCircle, Edit2, Unlock, QrCode, ShoppingBag } from 'lucide-react';
+import { Gift, Plus, Trash2, CheckCircle, Edit2, Unlock, QrCode, ShoppingBag, ShieldCheck, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -87,6 +87,22 @@ export const GiftsManagement = () => {
     }
   };
 
+
+
+  const handleValidateMuralGift = async (giftId) => {
+    if (!window.confirm('Deseja validar este presente enviado no mural?')) return;
+    try {
+      const token = localStorage.getItem('adminToken');
+      await axios.put(`${API}/gifts/${giftId}/validate`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('Presente validado com sucesso!');
+      fetchGifts();
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || 'Erro ao validar presente do mural');
+    }
+  };
+
   const handleUnclaimGift = async (giftId) => {
     if (!window.confirm('Deseja liberar este presente novamente?')) return;
     try {
@@ -101,6 +117,9 @@ export const GiftsManagement = () => {
     }
   };
 
+  const muralGifts = gifts.filter((gift) => gift.claimType === 'mural');
+  const catalogGifts = gifts.filter((gift) => gift.claimType !== 'mural');
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -114,7 +133,7 @@ export const GiftsManagement = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-serif text-3xl text-wedding-blue mb-2">Gestão de Presentes</h1>
-          <p className="text-slate-600">{gifts.length} presentes cadastrados</p>
+          <p className="text-slate-600">{catalogGifts.length} do catálogo · {muralGifts.length} enviados no mural</p>
         </div>
         <button
           onClick={() => setShowAddDialog(true)}
@@ -133,7 +152,7 @@ export const GiftsManagement = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {gifts.map((gift, index) => (
+          {[...muralGifts, ...catalogGifts].map((gift, index) => (
             <motion.div
               key={gift.id}
               initial={{ opacity: 0, y: 20 }}
@@ -177,10 +196,19 @@ export const GiftsManagement = () => {
                     <p className="text-xs text-slate-500 flex items-center gap-1">
                       {gift.claimType === 'pix' ? (
                         <><QrCode className="w-3 h-3" /> Pagamento via PIX</>
+                      ) : gift.claimType === 'mural' ? (
+                        <><ShoppingBag className="w-3 h-3" /> Adicionado via mural</>
                       ) : (
                         <><ShoppingBag className="w-3 h-3" /> Presente físico</>
                       )}
                     </p>
+                  </div>
+                )}
+
+                {gift.claimType === 'mural' && !gift.muralValidated && (
+                  <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-700 inline-flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Presente enviado no mural aguardando validação
                   </div>
                 )}
 
@@ -193,6 +221,15 @@ export const GiftsManagement = () => {
                     <Edit2 className="w-4 h-4" />
                     Editar
                   </button>
+                  {gift.claimType === 'mural' && !gift.muralValidated && (
+                    <button
+                      onClick={() => handleValidateMuralGift(gift.id)}
+                      className="flex-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg py-2 transition-all inline-flex items-center justify-center gap-2"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      Validar
+                    </button>
+                  )}
                   {gift.isTaken && (
                     <button
                       onClick={() => handleUnclaimGift(gift.id)}
