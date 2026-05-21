@@ -545,20 +545,25 @@ export const GiftsAndVaquinhas = ({ guest }) => {
             </div>
 
             <div className="mt-6">
-              <p className="text-sm uppercase tracking-wider text-slate-500 mb-3">Já confirmados no mural</p>
+              <p className="text-sm uppercase tracking-wider text-slate-500 mb-3">Presentes no mural</p>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <AnimatePresence>
-                  {giftsMural.map((gift) => (
-                    <motion.div key={`mural-${gift.id}`} initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.98 }} transition={{ duration: 0.25 }} className="bg-white/90 rounded-2xl p-6 shadow-md border border-slate-100">
+                  {gifts.filter((gift) => gift.isTaken && gift.takenByName && gift.claimType === 'mural').map((gift) => (
+                    <motion.div key={`mural-${gift.id}`} initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.98 }} transition={{ duration: 0.25 }} className="bg-white/90 rounded-2xl p-6 shadow-md border border-slate-100 relative">
+                      {gift.muralValidated === false && (
+                        <span className="absolute top-3 right-3 rounded-full bg-amber-100 text-amber-700 text-[10px] px-2 py-1 font-semibold uppercase tracking-wide">
+                          Em avaliação
+                        </span>
+                      )}
                       <p className="text-xs uppercase tracking-wider text-wedding-gold font-semibold mb-2">{gift.takenByName}</p>
                       <p className="font-serif text-2xl text-slate-800 leading-tight">{gift.name}</p>
                       <PartyPopper className="w-5 h-5 text-wedding-gold mt-3" />
                     </motion.div>
                   ))}
                 </AnimatePresence>
-                {giftsMural.length === 0 && (
+                {gifts.filter((gift) => gift.isTaken && gift.takenByName && gift.claimType === 'mural').length === 0 && (
                   <div className="col-span-full bg-white/70 rounded-xl border border-dashed border-slate-300 p-4 text-slate-500 text-sm">
-                    Ainda não há presentes confirmados no mural.
+                    Ainda não há presentes no mural.
                   </div>
                 )}
               </motion.div>
