@@ -552,7 +552,7 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                     <motion.div key={`mural-${gift.id}`} initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.98 }} transition={{ duration: 0.25 }} className="bg-white/90 rounded-2xl p-6 shadow-md border border-slate-100 relative">
                       {gift.muralValidated === false && (
                         <span className="absolute top-3 right-3 rounded-full bg-amber-100 text-amber-700 text-[10px] px-2 py-1 font-semibold uppercase tracking-wide">
-                          Em avaliação
+                          Em Progresso
                         </span>
                       )}
                       <p className="text-xs uppercase tracking-wider text-wedding-gold font-semibold mb-2">{gift.takenByName}</p>
