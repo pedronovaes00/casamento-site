@@ -305,39 +305,46 @@ export const GiftsAndVaquinhas = ({ guest }) => {
     [gifts]
   );
 
-  const selectedGiftAlreadyOnMural = useMemo(() => {
-    if (!selectedGiftSuggestion) return null;
+  const muralGiftNameToSave = selectedGiftSuggestion?.name || giftSearchQuery.trim();
 
-    const selectedGiftKey = compactarBusca(normalizarBusca(selectedGiftSuggestion.name));
-    return giftsMural.find((gift) => compactarBusca(normalizarBusca(gift.name)) === selectedGiftKey) || null;
-  }, [giftsMural, normalizarBusca, selectedGiftSuggestion]);
+  const muralGiftCategoryToSave = selectedGiftSuggestion?.category || 'Item livre';
+
+  const typedGiftAlreadyOnMural = useMemo(() => {
+    if (!muralGiftNameToSave) return null;
+    const typedGiftKey = compactarBusca(normalizarBusca(muralGiftNameToSave));
+    return giftsMural.find((gift) => compactarBusca(normalizarBusca(gift.name)) === typedGiftKey) || null;
+  }, [giftsMural, muralGiftNameToSave, normalizarBusca]);
 
   const canSaveMuralGift = Boolean(
     selectedMuralDonor &&
-      selectedGiftSuggestion &&
-      !selectedGiftAlreadyOnMural &&
+      muralGiftNameToSave.length >= 2 &&
       !isSavingGiftToMural
   );
 
   const handleSaveGiftToMural = async () => {
-    if (!selectedMuralDonor || !selectedGiftSuggestion) {
-      toast.error('Selecione seu nome e uma sugestão de presente antes de salvar.');
-      return;
-    }
-
-    if (selectedGiftAlreadyOnMural) {
-      toast.error('Esse item já aparece no mural. Escolha outra sugestão para evitar repetição.');
+    if (!selectedMuralDonor || muralGiftNameToSave.length < 2) {
+      toast.error('Selecione seu nome e informe um presente válido antes de salvar.');
       return;
     }
 
     try {
       setIsSavingGiftToMural(true);
-      await axios.post(`${API}/gifts/mural`, {
-        name: selectedGiftSuggestion.name,
-        category: selectedGiftSuggestion.category,
+      const payload = {
+        name: muralGiftNameToSave,
+        category: muralGiftCategoryToSave,
         guest_id: selectedMuralDonor.id,
         guest_name: selectedMuralDonor.name,
-      });
+      };
+
+      try {
+        await axios.post(`${API}/gifts/mural`, payload);
+      } catch (error) {
+        if (error?.response?.status === 405) {
+          await axios.put(`${API}/gifts/mural`, payload);
+        } else {
+          throw error;
+        }
+      }
       toast.success('Presente registrado no mural com sucesso 💛');
       await fetchData();
       setGiftSearchQuery('');
@@ -493,11 +500,17 @@ export const GiftsAndVaquinhas = ({ guest }) => {
                 {giftSearchQuery.trim().length >= 2 && giftSuggestions.length === 0 && !selectedGiftSuggestion && (
                   <p className="text-xs text-slate-400 mt-2">Nenhuma sugestão encontrada. Tente outro termo, como "panela", "pano" ou "toalha".</p>
                 )}
-                {selectedGiftSuggestion && !selectedGiftAlreadyOnMural && (
+                {selectedGiftSuggestion && !typedGiftAlreadyOnMural && (
                   <p className="text-xs text-wedding-blue mt-2">Selecionado: {selectedGiftSuggestion.name} · {selectedGiftSuggestion.category}</p>
                 )}
-                {selectedGiftAlreadyOnMural && (
-                  <p className="text-xs text-red-500 mt-2">Esse item já foi escolhido por {selectedGiftAlreadyOnMural.takenByName}. Escolha outra sugestão.</p>
+                {!selectedGiftSuggestion && giftSearchQuery.trim().length >= 2 && !typedGiftAlreadyOnMural && (
+                  <p className="text-xs text-slate-500 mt-2">Item livre: será salvo exatamente como digitado.</p>
+                )}
+                {typedGiftAlreadyOnMural && (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                    Atenção: esse item já aparece no mural (por {typedGiftAlreadyOnMural.takenByName}).
+                    Você ainda pode salvar mesmo assim, se quiser repetir o presente.
+                  </div>
                 )}
               </div>
               <div className="md:col-span-1 flex items-center md:items-end">

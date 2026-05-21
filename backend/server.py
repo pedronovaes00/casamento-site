@@ -429,6 +429,18 @@ async def create_mural_gift(gift_input: MuralGiftCreate):
     await db.gifts.insert_one(doc)
     return gift_obj
 
+
+
+@api_router.options("/gifts/mural")
+@api_router.options("/gifts/mural/", include_in_schema=False)
+async def options_mural_gift():
+    return {"ok": True}
+
+@api_router.put("/gifts/mural", response_model=Gift, include_in_schema=False)
+@api_router.put("/gifts/mural/", response_model=Gift, include_in_schema=False)
+async def create_mural_gift_put_fallback(gift_input: MuralGiftCreate):
+    return await create_mural_gift(gift_input)
+
 @api_router.put("/gifts/{gift_id}/claim")
 async def claim_gift(gift_id: str, guest_id: str, guest_name: str, claim_type: str = "physical"):
     gift = await db.gifts.find_one({"id": gift_id}, {"_id": 0})

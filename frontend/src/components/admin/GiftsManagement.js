@@ -117,6 +117,9 @@ export const GiftsManagement = () => {
     }
   };
 
+  const muralGifts = gifts.filter((gift) => gift.claimType === 'mural');
+  const catalogGifts = gifts.filter((gift) => gift.claimType !== 'mural');
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -130,7 +133,7 @@ export const GiftsManagement = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-serif text-3xl text-wedding-blue mb-2">Gestão de Presentes</h1>
-          <p className="text-slate-600">{gifts.length} presentes cadastrados</p>
+          <p className="text-slate-600">{catalogGifts.length} do catálogo · {muralGifts.length} enviados no mural</p>
         </div>
         <button
           onClick={() => setShowAddDialog(true)}
@@ -149,7 +152,7 @@ export const GiftsManagement = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {gifts.map((gift, index) => (
+          {[...muralGifts, ...catalogGifts].map((gift, index) => (
             <motion.div
               key={gift.id}
               initial={{ opacity: 0, y: 20 }}
