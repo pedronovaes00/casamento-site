@@ -9,6 +9,12 @@ import { giftCatalog } from '../data/giftCatalog';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+if (typeof window !== 'undefined') {
+  // Log temporário para diagnóstico em produção
+  console.info('[MURAL_DEBUG] BACKEND_URL:', BACKEND_URL);
+  console.info('[MURAL_DEBUG] API:', API);
+}
+
 
 const compactarBusca = (str = '') => str.replace(/\s+/g, '');
 
