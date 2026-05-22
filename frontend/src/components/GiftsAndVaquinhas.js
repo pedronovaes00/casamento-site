@@ -309,9 +309,9 @@ export const GiftsAndVaquinhas = ({ guest }) => {
   // ✅ ATUALIZADO: Mural agora mostra TODOS os presentes com claimType 'mural'
   // Isso inclui tanto presentes da sugestão quanto digitados manualmente
   const giftsMural = useMemo(
-    () => gifts.filter((gift) => gift.isTaken && gift.claimType === 'mural'),
-    [gifts]
-  );
+  () => gifts.filter((gift) => gift.isTaken && ['mural', 'physical', 'pix'].includes(gift.claimType)),
+  [gifts]
+);
 
   const muralGiftNameToSave = selectedGiftSuggestion?.name || giftSearchQuery.trim();
 
