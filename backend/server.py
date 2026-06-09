@@ -231,8 +231,8 @@ async def verify_admin_token(credentials: HTTPAuthorizationCredentials = Depends
 
 @api_router.post("/admin/login", response_model=AdminLoginResponse)
 async def admin_login(login_data: AdminLogin):
-    admin_id = os.environ.get('ADMIN_ID', 'noivos2024')
-    admin_password = os.environ.get('ADMIN_PASSWORD', 'casamento123')
+    admin_id = os.environ.get('ADMIN_ID', 'pm')
+    admin_password = os.environ.get('ADMIN_PASSWORD', 'pm123')
     if login_data.adminId == admin_id and login_data.password == admin_password:
         expires_in_days = get_admin_token_expires_days()
         token_data = {
