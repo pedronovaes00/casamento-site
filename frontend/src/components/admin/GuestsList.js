@@ -32,7 +32,9 @@ const normalizarMembros = (membros) =>
         }
         return {
           nome: membro?.nome || '',
-          confirmado: Boolean(membro?.confirmado)
+          confirmado: Boolean(membro?.confirmado),
+          servico: membro?.servico || '',
+          contato: membro?.contato || ''
         };
       })
       .filter((membro) => membro.nome)
