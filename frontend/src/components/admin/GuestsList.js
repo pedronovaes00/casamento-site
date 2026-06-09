@@ -168,6 +168,7 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
