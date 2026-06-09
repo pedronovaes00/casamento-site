@@ -705,6 +705,10 @@ async def upload_image(file: UploadFile = File(...), admin: dict = Depends(verif
 
 app.include_router(api_router)
 
+@app.get("/")
+async def health_check():
+    return {"status": "ok", "app": "casamento-site", "api": "/api"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
