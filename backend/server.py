@@ -366,8 +366,6 @@ async def exportar_grupos_pdf(admin: dict = Depends(verify_admin_token)):
     grupos = await db.grupos.find({}, {"_id": 0}).to_list(1000)
     listas = await db.listas.find({}, {"_id": 0}).to_list(1000)
 
-    listas_map = {l["id"]: l for l in listas}
-
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
@@ -381,7 +379,10 @@ async def exportar_grupos_pdf(admin: dict = Depends(verify_admin_token)):
             grupos_por_lista[lid] = []
         grupos_por_lista[lid].append(g)
 
-    total = 0
+    total_convidados = 0
+    total_staff = 0
+    usable = pdf.w - 2 * pdf.l_margin
+
     for lista in listas:
         lid = lista["id"]
         nome_lista = lista.get("nome", "Sem nome")
@@ -396,34 +397,66 @@ async def exportar_grupos_pdf(admin: dict = Depends(verify_admin_token)):
         pdf.ln(2)
 
         if tipo == "staff":
-            pdf.set_font("Helvetica", "", 10)
+            col_w = [usable * 0.40, usable * 0.30, usable * 0.30]
+            h_row = 7
+
+            if pdf.get_y() + 8 + len(grupos_da_lista) * h_row + 4 > pdf.h - pdf.b_margin:
+                pdf.add_page()
+
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_fill_color(230, 230, 230)
+            for i, h in enumerate(["Nome", "Serviço", "Contato"]):
+                pdf.cell(col_w[i], 8, h, border=1, fill=True, align="C")
+            pdf.ln()
+
+            pdf.set_font("Helvetica", "", 8)
             for g in grupos_da_lista:
                 m = g.get("membros", [{}])[0]
                 nome = m.get("nome", g.get("nomeGrupo", ""))
                 servico = m.get("servico", "")
                 contato = m.get("contato", "")
-                linha = f"  {nome}"
-                if servico:
-                    linha += f" | {servico}"
-                if contato:
-                    linha += f" | {contato}"
-                pdf.cell(0, 7, linha, new_x="LMARGIN", new_y="NEXT")
-                total += 1
+                vals = [nome, servico, contato]
+                for i, v in enumerate(vals):
+                    pdf.cell(col_w[i], h_row, v, border=1, align="C")
+                pdf.ln()
+                total_staff += 1
+            pdf.ln(3)
         else:
-            for g in grupos_da_lista:
-                pdf.set_font("Helvetica", "B", 11)
-                pdf.cell(0, 7, g.get("nomeGrupo", "Sem nome"), new_x="LMARGIN", new_y="NEXT")
-                pdf.set_font("Helvetica", "", 10)
-                for m in g.get("membros", []):
-                    nome = m.get("nome", "")
-                    pdf.cell(0, 6, f"  - {nome}", new_x="LMARGIN", new_y="NEXT")
-                    total += 1
-                pdf.ln(2)
+            for block_start in range(0, len(grupos_da_lista), 4):
+                block = grupos_da_lista[block_start:block_start + 4]
+                n_cols = len(block)
+                col_w = usable / n_cols
+                max_m = max(len(g.get("membros", [])) for g in block)
+                header_h = 10
+                row_h = 7
+
+                if pdf.get_y() + header_h + max_m * row_h + 4 > pdf.h - pdf.b_margin:
+                    pdf.add_page()
+
+                pdf.set_font("Helvetica", "B", 8)
+                pdf.set_fill_color(200, 215, 240)
+                for g in block:
+                    name = g.get("nomeGrupo", "")[:28]
+                    pdf.cell(col_w, header_h, name, border=1, fill=True, align="C")
+                pdf.ln()
+
+                pdf.set_font("Helvetica", "", 8)
+                for i in range(max_m):
+                    for g in block:
+                        membros = g.get("membros", [])
+                        nome = membros[i]["nome"] if i < len(membros) else ""
+                        pdf.cell(col_w, row_h, nome, border=1, align="C")
+                    pdf.ln()
+                pdf.ln(3)
+
+                for g in block:
+                    total_convidados += len(g.get("membros", []))
         pdf.ln(4)
 
     pdf.ln(5)
     pdf.set_font("Helvetica", "I", 10)
-    pdf.cell(0, 10, f"Total de convidados: {total}", new_x="LMARGIN", new_y="NEXT", align="C")
+    texto = f"Total Convidados: {total_convidados}   |   Staff: {total_staff}"
+    pdf.cell(0, 10, texto, new_x="LMARGIN", new_y="NEXT", align="C")
 
     buffer = BytesIO()
     pdf.output(buffer)
