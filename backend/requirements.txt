@@ -12,3 +12,4 @@ python-multipart==0.0.22
 qrcode==8.2
 starlette==0.37.2
 cloudinary==1.36.0
+fpdf2==2.7.5

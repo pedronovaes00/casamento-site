@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Plus, Trash2, Edit2, Check, X, Bell, ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
+import { Users, Plus, Trash2, Edit2, Check, X, Bell, ChevronDown, ChevronUp, GripVertical, FileText } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -38,7 +38,6 @@ const normalizarMembros = (membros) =>
       .filter((membro) => membro.nome)
     : [];
 
-// Item arrastável — membro dentro do dialog
 const SortableMembro = ({ id, value, index, onChange, onRemove, canRemove }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   return (
@@ -66,7 +65,6 @@ const SortableMembro = ({ id, value, index, onChange, onRemove, canRemove }) => 
   );
 };
 
-// Item arrastável — grupo na lista principal
 const SortableGrupo = ({ grupo, expandido, onToggle, onEditar, onDeletar }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: grupo.id });
   const membros = normalizarMembros(grupo?.membros);
@@ -81,7 +79,6 @@ const SortableGrupo = ({ grupo, expandido, onToggle, onEditar, onDeletar }) => {
       className={`bg-white rounded-xl shadow-lg overflow-hidden ${isDragging ? 'opacity-60 shadow-2xl' : ''}`}
     >
       <div className="p-5 flex items-center justify-between">
-        {/* Handle de drag */}
         <div {...attributes} {...listeners} className="cursor-grab p-1 text-slate-300 hover:text-slate-400 mr-1 flex-shrink-0">
           <GripVertical className="w-5 h-5" />
         </div>
@@ -155,6 +152,8 @@ const SortableGrupo = ({ grupo, expandido, onToggle, onEditar, onDeletar }) => {
 
 export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
   const [grupos, setGrupos] = useState([]);
+  const [listas, setListas] = useState([]);
+  const [listaAtiva, setListaAtiva] = useState(null);
   const [notificacoes, setNotificacoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [abaAtiva, setAbaAtiva] = useState('grupos');
@@ -163,47 +162,57 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState({ nomeGrupo: '', membros: [''] });
   const [membroIds, setMembroIds] = useState(['membro-0']);
+  const [showListaDialog, setShowListaDialog] = useState(false);
+  const [editandoLista, setEditandoLista] = useState(null);
+  const [formLista, setFormLista] = useState({ nome: '' });
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      if (!token) {
-        onUnauthorized?.();
-        return;
-      }
+      if (!token) { onUnauthorized?.(); return; }
       const headers = { Authorization: `Bearer ${token}` };
-      const [gruposRes, notifRes] = await Promise.all([
+
+      const [gruposRes, notifRes, listasRes] = await Promise.all([
         axios.get(`${API}/grupos`, { headers }),
-        axios.get(`${API}/admin/notificacoes`, { headers })
+        axios.get(`${API}/admin/notificacoes`, { headers }),
+        axios.get(`${API}/listas`, { headers }).catch(() => ({ data: [] }))
       ]);
+
       const gruposNormalizados = Array.isArray(gruposRes.data)
-        ? gruposRes.data.map((grupo) => ({
-          ...grupo,
-          membros: normalizarMembros(grupo?.membros)
-        }))
+        ? gruposRes.data.map(g => ({ ...g, membros: normalizarMembros(g?.membros) }))
         : [];
       const notificacoesNormalizadas = Array.isArray(notifRes.data) ? notifRes.data : [];
+      const listasData = Array.isArray(listasRes.data) ? listasRes.data : [];
 
       setGrupos(gruposNormalizados);
       setNotificacoes(notificacoesNormalizadas);
+      setListas(listasData);
+
+      if (listasData.length > 0 && !listaAtiva) {
+        setListaAtiva(listasData[0].id);
+      }
+
       onNotifCount?.(notificacoesNormalizadas.length);
     } catch (error) {
-      if (error.response?.status === 401) {
-        onUnauthorized?.();
-        return;
-      }
+      if (error.response?.status === 401) { onUnauthorized?.(); return; }
       toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
   };
 
-  // Drag dos grupos na lista
+  const gruposFiltrados = listaAtiva
+    ? grupos.filter(g => g.listaId === listaAtiva)
+    : grupos;
+
+  const listaNome = listaAtiva
+    ? (listas.find(l => l.id === listaAtiva)?.nome || 'Convidados')
+    : 'Todas as listas';
+
   const handleDragEndGrupos = ({ active, over }) => {
     if (!over || active.id === over.id) return;
     setGrupos(prev => {
@@ -213,15 +222,12 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
     });
   };
 
-  // Drag dos membros no dialog
   const handleDragEndMembros = ({ active, over }) => {
     if (!over || active.id === over.id) return;
     const oldIndex = membroIds.indexOf(active.id);
     const newIndex = membroIds.indexOf(over.id);
-    const newIds = arrayMove(membroIds, oldIndex, newIndex);
-    const newMembros = arrayMove(form.membros, oldIndex, newIndex);
-    setMembroIds(newIds);
-    setForm(prev => ({ ...prev, membros: newMembros }));
+    setMembroIds(arrayMove(membroIds, oldIndex, newIndex));
+    setForm(prev => ({ ...prev, membros: arrayMove(prev.membros, oldIndex, newIndex) }));
   };
 
   const abrirCriar = () => {
@@ -240,9 +246,8 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
   };
 
   const addMembroField = () => {
-    const newId = `membro-${Date.now()}`;
     setForm(prev => ({ ...prev, membros: [...prev.membros, ''] }));
-    setMembroIds(prev => [...prev, newId]);
+    setMembroIds(prev => [...prev, `membro-${Date.now()}`]);
   };
 
   const removeMembroField = (i) => {
@@ -265,7 +270,7 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
     try {
       const token = localStorage.getItem('adminToken');
       const headers = { Authorization: `Bearer ${token}` };
-      const payload = { nomeGrupo: form.nomeGrupo, membros: membrosValidos };
+      const payload = { nomeGrupo: form.nomeGrupo, membros: membrosValidos, listaId: listaAtiva };
       if (editando) {
         await axios.put(`${API}/grupos/${editando.id}`, payload, { headers });
         toast.success('Grupo atualizado!');
@@ -276,10 +281,7 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
       setShowDialog(false);
       fetchAll();
     } catch (error) {
-      if (error.response?.status === 401) {
-        onUnauthorized?.();
-        return;
-      }
+      if (error.response?.status === 401) { onUnauthorized?.(); return; }
       toast.error('Erro ao salvar grupo');
     }
   };
@@ -292,10 +294,7 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
       toast.success('Grupo excluído!');
       fetchAll();
     } catch (error) {
-      if (error.response?.status === 401) {
-        onUnauthorized?.();
-        return;
-      }
+      if (error.response?.status === 401) { onUnauthorized?.(); return; }
       toast.error('Erro ao excluir grupo');
     }
   };
@@ -307,11 +306,82 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
       toast.success('Notificação resolvida!');
       fetchAll();
     } catch (error) {
-      if (error.response?.status === 401) {
-        onUnauthorized?.();
-        return;
-      }
+      if (error.response?.status === 401) { onUnauthorized?.(); return; }
       toast.error('Erro ao resolver notificação');
+    }
+  };
+
+  const abrirCriarLista = () => {
+    setEditandoLista(null);
+    setFormLista({ nome: '' });
+    setShowListaDialog(true);
+  };
+
+  const abrirRenomearLista = () => {
+    const lista = listas.find(l => l.id === listaAtiva);
+    if (!lista) return;
+    setEditandoLista(lista);
+    setFormLista({ nome: lista.nome });
+    setShowListaDialog(true);
+  };
+
+  const handleSalvarLista = async () => {
+    if (!formLista.nome.trim()) { toast.error('Informe o nome da lista'); return; }
+    try {
+      const token = localStorage.getItem('adminToken');
+      const headers = { Authorization: `Bearer ${token}` };
+      const payload = { nome: formLista.nome.trim() };
+      if (editandoLista) {
+        await axios.put(`${API}/listas/${editandoLista.id}`, payload, { headers });
+        toast.success('Lista renomeada!');
+      } else {
+        await axios.post(`${API}/listas`, payload, { headers });
+        toast.success('Lista criada!');
+      }
+      setShowListaDialog(false);
+      fetchAll();
+    } catch (error) {
+      if (error.response?.status === 401) { onUnauthorized?.(); return; }
+      toast.error('Erro ao salvar lista');
+    }
+  };
+
+  const handleDeletarLista = async () => {
+    if (!listaAtiva) return;
+    if (!window.confirm(`Excluir a lista "${listaNome}" e todos os seus grupos?`)) return;
+    try {
+      const token = localStorage.getItem('adminToken');
+      await axios.delete(`${API}/listas/${listaAtiva}`, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Lista excluída!');
+      setListaAtiva(null);
+      fetchAll();
+    } catch (error) {
+      if (error.response?.status === 401) { onUnauthorized?.(); return; }
+      toast.error('Erro ao excluir lista');
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!listaAtiva) return;
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await axios.get(`${API}/grupos/exportar-pdf`, {
+        params: { listaId: listaAtiva },
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `convidados-${listaNome.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('PDF exportado!');
+    } catch (error) {
+      if (error.response?.status === 401) { onUnauthorized?.(); return; }
+      toast.error('Erro ao exportar PDF');
     }
   };
 
@@ -321,81 +391,172 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
     </div>
   );
 
-  const totalConfirmados = grupos.reduce((sum, g) => sum + normalizarMembros(g?.membros).filter(m => m.confirmado).length, 0);
-  const totalConvidados = grupos.reduce((sum, g) => sum + normalizarMembros(g?.membros).length, 0);
+  const totalNaLista = gruposFiltrados.reduce((sum, g) => sum + normalizarMembros(g?.membros).length, 0);
+  const totalConfirmados = gruposFiltrados.reduce((sum, g) => sum + normalizarMembros(g?.membros).filter(m => m.confirmado).length, 0);
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="font-serif text-3xl text-wedding-blue mb-1">Convidados</h1>
-          <p className="text-slate-600">
-            {totalConfirmados} confirmados de {totalConvidados} convidados em {grupos.length} grupos
-          </p>
+      <div className="flex items-start justify-between mb-4">
+        <h1 className="font-serif text-3xl text-wedding-blue">Convidados</h1>
+      </div>
+
+      {/* List Selector */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {listas.map(lista => (
+          <button
+            key={lista.id}
+            onClick={() => { setListaAtiva(lista.id); setAbaAtiva('grupos'); }}
+            className={`px-4 py-2 rounded-full font-serif text-sm transition-all ${
+              listaAtiva === lista.id
+                ? 'bg-wedding-blue text-white shadow'
+                : 'bg-white text-wedding-blue hover:bg-slate-50 border border-wedding-blue/20'
+            }`}
+          >
+            {lista.nome}
+          </button>
+        ))}
+        <button
+          onClick={abrirCriarLista}
+          className="px-3 py-2 rounded-full font-serif text-sm bg-white text-slate-400 hover:text-wedding-blue border border-dashed border-slate-300 hover:border-wedding-blue transition-all"
+          title="Nova lista"
+        >
+          <Plus className="w-4 h-4 inline" /> Lista
+        </button>
+
+        {listaAtiva && (
+          <div className="flex items-center gap-1 ml-auto">
+            <button
+              onClick={abrirRenomearLista}
+              className="p-2 text-slate-400 hover:text-wedding-blue hover:bg-slate-100 rounded-lg transition-colors"
+              title="Renomear lista"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleDeletarLista}
+              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              title="Excluir lista"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleExportPdf}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg font-serif text-sm transition-all shadow"
+              title="Exportar PDF"
+            >
+              <FileText className="w-4 h-4" /> PDF
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex gap-3">
+          <button
+            onClick={() => setAbaAtiva('grupos')}
+            className={`px-5 py-2.5 rounded-full font-serif transition-all ${
+              abaAtiva === 'grupos' ? 'bg-wedding-blue text-white shadow' : 'bg-white text-wedding-blue hover:bg-slate-50'
+            }`}
+          >
+            <Users className="w-4 h-4 inline mr-2" />Grupos
+          </button>
+          <button
+            onClick={() => setAbaAtiva('notificacoes')}
+            className={`px-5 py-2.5 rounded-full font-serif transition-all relative ${
+              abaAtiva === 'notificacoes' ? 'bg-wedding-blue text-white shadow' : 'bg-white text-wedding-blue hover:bg-slate-50'
+            }`}
+          >
+            <Bell className="w-4 h-4 inline mr-2" />
+            Não encontrados
+            {notificacoes.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                {notificacoes.length}
+              </span>
+            )}
+          </button>
         </div>
-        <button
-          onClick={abrirCriar}
-          className="bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-lg px-5 py-3 font-serif transition-all shadow-lg inline-flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Novo Grupo
-        </button>
+
+        {abaAtiva === 'grupos' && listaAtiva && (
+          <button
+            onClick={abrirCriar}
+            className="bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-lg px-5 py-3 font-serif transition-all shadow-lg inline-flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Novo Grupo
+          </button>
+        )}
       </div>
 
-      {/* Abas */}
-      <div className="flex gap-3 mb-6">
-        <button
-          onClick={() => setAbaAtiva('grupos')}
-          className={`px-5 py-2.5 rounded-full font-serif transition-all ${abaAtiva === 'grupos' ? 'bg-wedding-blue text-white shadow' : 'bg-white text-wedding-blue hover:bg-slate-50'}`}
-        >
-          <Users className="w-4 h-4 inline mr-2" />Grupos
-        </button>
-        <button
-          onClick={() => setAbaAtiva('notificacoes')}
-          className={`px-5 py-2.5 rounded-full font-serif transition-all relative ${abaAtiva === 'notificacoes' ? 'bg-wedding-blue text-white shadow' : 'bg-white text-wedding-blue hover:bg-slate-50'}`}
-        >
-          <Bell className="w-4 h-4 inline mr-2" />
-          Não encontrados
-          {notificacoes.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-              {notificacoes.length}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Aba Grupos */}
+      {/* Summary */}
       {abaAtiva === 'grupos' && (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndGrupos}>
-          <SortableContext items={grupos.map(g => g.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-4">
-              {grupos.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-                  <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-500 mb-4">Nenhum grupo cadastrado ainda</p>
-                  <button onClick={abrirCriar} className="bg-wedding-blue text-white rounded-lg px-5 py-2 font-serif">
-                    Criar primeiro grupo
-                  </button>
-                </div>
-              ) : (
-                grupos.map((grupo) => (
-                  <SortableGrupo
-                    key={grupo.id}
-                    grupo={grupo}
-                    expandido={expandido}
-                    onToggle={(id) => setExpandido(expandido === id ? null : id)}
-                    onEditar={abrirEditar}
-                    onDeletar={handleDeletar}
-                  />
-                ))
-              )}
-            </div>
-          </SortableContext>
-        </DndContext>
+        <p className="text-slate-600 mb-4 text-sm">
+          {totalConfirmados} confirmados de {totalNaLista} convidados em {gruposFiltrados.length} grupos
+          {listaAtiva && (
+            <span> — <span className="font-semibold text-wedding-blue">{listaNome}</span></span>
+          )}
+        </p>
       )}
 
-      {/* Aba Notificações */}
+      {/* Content */}
+      {abaAtiva === 'grupos' && (
+        <>
+          {!listaAtiva && gruposFiltrados.length > 0 ? (
+            <div className="space-y-8">
+              {listas.map(lista => {
+                const gruposDaLista = grupos.filter(g => g.listaId === lista.id);
+                if (gruposDaLista.length === 0) return null;
+                return (
+                  <div key={lista.id}>
+                    <h3 className="font-serif text-xl text-wedding-blue mb-3 border-b border-slate-200 pb-2">
+                      {lista.nome}
+                    </h3>
+                    <div className="space-y-4">
+                      {gruposDaLista.map(grupo => (
+                        <SortableGrupo
+                          key={grupo.id}
+                          grupo={grupo}
+                          expandido={expandido}
+                          onToggle={(id) => setExpandido(expandido === id ? null : id)}
+                          onEditar={abrirEditar}
+                          onDeletar={handleDeletar}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : listaAtiva && gruposFiltrados.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+              <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-500 mb-4">Nenhum grupo nesta lista</p>
+              <button onClick={abrirCriar} className="bg-wedding-blue text-white rounded-lg px-5 py-2 font-serif">
+                Criar primeiro grupo
+              </button>
+            </div>
+          ) : (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndGrupos}>
+              <SortableContext items={gruposFiltrados.map(g => g.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-4">
+                  {gruposFiltrados.map(grupo => (
+                    <SortableGrupo
+                      key={grupo.id}
+                      grupo={grupo}
+                      expandido={expandido}
+                      onToggle={(id) => setExpandido(expandido === id ? null : id)}
+                      onEditar={abrirEditar}
+                      onDeletar={handleDeletar}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
+        </>
+      )}
+
+      {/* Notifications */}
       {abaAtiva === 'notificacoes' && (
         <div className="space-y-3">
           {notificacoes.length === 0 ? (
@@ -430,7 +591,7 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
         </div>
       )}
 
-      {/* Dialog Criar/Editar */}
+      {/* Dialog Group */}
       <Dialog open={showDialog} onOpenChange={(open) => { setShowDialog(open); if (!open) setEditando(null); }}>
         <DialogContent className="bg-white max-w-md max-h-[90vh] flex flex-col">
           <DialogHeader>
@@ -485,6 +646,36 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
               <Button onClick={() => setShowDialog(false)} variant="outline" className="flex-1">Cancelar</Button>
               <Button onClick={handleSalvar} className="flex-1 bg-wedding-blue hover:bg-wedding-blueDark">
                 {editando ? 'Salvar' : 'Criar Grupo'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog List */}
+      <Dialog open={showListaDialog} onOpenChange={(open) => { setShowListaDialog(open); if (!open) setEditandoLista(null); }}>
+        <DialogContent className="bg-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-2xl text-wedding-blue">
+              {editandoLista ? 'Renomear Lista' : 'Nova Lista'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 mt-2">
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">Nome da Lista</label>
+              <input
+                type="text"
+                value={formLista.nome}
+                onChange={(e) => setFormLista(prev => ({ ...prev, nome: e.target.value }))}
+                placeholder="Ex: Staff, Convidados..."
+                className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2.5 focus:outline-none"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button onClick={() => setShowListaDialog(false)} variant="outline" className="flex-1">Cancelar</Button>
+              <Button onClick={handleSalvarLista} className="flex-1 bg-wedding-blue hover:bg-wedding-blueDark">
+                {editandoLista ? 'Renomear' : 'Criar'}
               </Button>
             </div>
           </div>

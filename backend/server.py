@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -21,6 +21,7 @@ import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
 from io import BytesIO
 import base64
+from fpdf import FPDF
 import unicodedata
 import re
 
@@ -92,12 +93,23 @@ class MembroGrupo(BaseModel):
 class GrupoFamiliarCreate(BaseModel):
     nomeGrupo: str
     membros: List[str]  # só os nomes
+    listaId: Optional[str] = None
+
+class ListaCreate(BaseModel):
+    nome: str
+
+class Lista(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    nome: str
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class GrupoFamiliar(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     nomeGrupo: str
     membros: List[MembroGrupo] = []
+    listaId: Optional[str] = None
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ConfirmarGrupoRequest(BaseModel):
@@ -232,11 +244,62 @@ async def admin_login(login_data: AdminLogin):
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas")
 
+# ============ LISTAS ROUTES ============
+
+@api_router.get("/listas", response_model=List[Lista])
+async def get_listas(admin: dict = Depends(verify_admin_token)):
+    listas = await db.listas.find({}, {"_id": 0}).to_list(1000)
+    if not listas:
+        lista_padrao = Lista(nome="Convidados")
+        doc = lista_padrao.model_dump()
+        doc['createdAt'] = doc['createdAt'].isoformat()
+        await db.listas.insert_one(doc)
+        await db.grupos.update_many(
+            {"listaId": {"$exists": False}},
+            {"$set": {"listaId": lista_padrao.id}}
+        )
+        await db.grupos.update_many(
+            {"listaId": None},
+            {"$set": {"listaId": lista_padrao.id}}
+        )
+        listas = [lista_padrao]
+    return listas
+
+@api_router.post("/listas", response_model=Lista)
+async def create_lista(lista_input: ListaCreate, admin: dict = Depends(verify_admin_token)):
+    lista = Lista(nome=lista_input.nome)
+    doc = lista.model_dump()
+    doc['createdAt'] = doc['createdAt'].isoformat()
+    await db.listas.insert_one(doc)
+    return lista
+
+@api_router.put("/listas/{lista_id}", response_model=Lista)
+async def update_lista(lista_id: str, lista_input: ListaCreate, admin: dict = Depends(verify_admin_token)):
+    result = await db.listas.update_one(
+        {"id": lista_id},
+        {"$set": {"nome": lista_input.nome}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Lista não encontrada")
+    lista_atualizada = await db.listas.find_one({"id": lista_id}, {"_id": 0})
+    return Lista(**lista_atualizada)
+
+@api_router.delete("/listas/{lista_id}")
+async def delete_lista(lista_id: str, admin: dict = Depends(verify_admin_token)):
+    await db.grupos.delete_many({"listaId": lista_id})
+    result = await db.listas.delete_one({"id": lista_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Lista não encontrada")
+    return {"message": "Lista e seus grupos excluídos com sucesso"}
+
 # ============ GRUPOS FAMILIARES ROUTES ============
 
 @api_router.get("/grupos", response_model=List[GrupoFamiliar])
-async def get_grupos(admin: dict = Depends(verify_admin_token)):
-    grupos = await db.grupos.find({}, {"_id": 0}).to_list(1000)
+async def get_grupos(listaId: Optional[str] = None, admin: dict = Depends(verify_admin_token)):
+    query = {}
+    if listaId:
+        query["listaId"] = listaId
+    grupos = await db.grupos.find(query, {"_id": 0}).to_list(1000)
     for g in grupos:
         if isinstance(g.get('createdAt'), str):
             g['createdAt'] = datetime.fromisoformat(g['createdAt'])
@@ -245,7 +308,7 @@ async def get_grupos(admin: dict = Depends(verify_admin_token)):
 @api_router.post("/grupos", response_model=GrupoFamiliar)
 async def create_grupo(grupo_input: GrupoFamiliarCreate, admin: dict = Depends(verify_admin_token)):
     membros = [MembroGrupo(nome=n) for n in grupo_input.membros]
-    grupo = GrupoFamiliar(nomeGrupo=grupo_input.nomeGrupo, membros=membros)
+    grupo = GrupoFamiliar(nomeGrupo=grupo_input.nomeGrupo, membros=membros, listaId=grupo_input.listaId)
     doc = grupo.model_dump()
     doc['createdAt'] = doc['createdAt'].isoformat()
     await db.grupos.insert_one(doc)
@@ -277,6 +340,53 @@ async def delete_grupo(grupo_id: str, admin: dict = Depends(verify_admin_token))
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Grupo não encontrado")
     return {"message": "Grupo deletado com sucesso"}
+
+@api_router.get("/grupos/exportar-pdf")
+async def exportar_grupos_pdf(listaId: Optional[str] = None, admin: dict = Depends(verify_admin_token)):
+    query = {}
+    if listaId:
+        query["listaId"] = listaId
+    grupos = await db.grupos.find(query, {"_id": 0}).to_list(1000)
+
+    nome_lista = "Convidados"
+    if listaId:
+        lista = await db.listas.find_one({"id": listaId}, {"_id": 0})
+        if lista:
+            nome_lista = lista.get("nome", "Convidados")
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, "Lista de Convidados", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.set_font("Helvetica", "", 11)
+    pdf.cell(0, 8, nome_lista, new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.ln(8)
+
+    total = 0
+    for grupo in grupos:
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(0, 8, grupo.get("nomeGrupo", "Sem nome"), new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "", 10)
+        for membro in grupo.get("membros", []):
+            nome = membro.get("nome", membro) if isinstance(membro, dict) else membro
+            pdf.cell(0, 7, f"  - {nome}", new_x="LMARGIN", new_y="NEXT")
+            total += 1
+        pdf.ln(3)
+
+    pdf.ln(5)
+    pdf.set_font("Helvetica", "I", 10)
+    pdf.cell(0, 10, f"Total de convidados: {total}", new_x="LMARGIN", new_y="NEXT", align="C")
+
+    buffer = BytesIO()
+    pdf.output(buffer)
+    buffer.seek(0)
+
+    filename = f"convidados-{nome_lista.lower().replace(' ', '-')}.pdf"
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 @api_router.get("/grupos/buscar")
 async def buscar_grupo(nome: str):
