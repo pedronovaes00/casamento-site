@@ -164,7 +164,8 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
   const [membroIds, setMembroIds] = useState(['membro-0']);
   const [showListaDialog, setShowListaDialog] = useState(false);
   const [editandoLista, setEditandoLista] = useState(null);
-  const [formLista, setFormLista] = useState({ nome: '' });
+  const [formLista, setFormLista] = useState({ nome: '', tipo: 'grupos' });
+  const [staffForm, setStaffForm] = useState({ nome: '', servico: '', contato: '' });
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -174,21 +175,23 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
       if (!token) { onUnauthorized?.(); return; }
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [gruposRes, notifRes, listasRes] = await Promise.all([
+      // Primeiro busca listas (faz a migração no backend), DEPOIS grupos
+      const listasRes = await axios.get(`${API}/listas`, { headers }).catch(() => ({ data: [] }));
+      const listasData = Array.isArray(listasRes.data) ? listasRes.data : [];
+      setListas(listasData);
+
+      const [gruposRes, notifRes] = await Promise.all([
         axios.get(`${API}/grupos`, { headers }),
-        axios.get(`${API}/admin/notificacoes`, { headers }),
-        axios.get(`${API}/listas`, { headers }).catch(() => ({ data: [] }))
+        axios.get(`${API}/admin/notificacoes`, { headers })
       ]);
 
       const gruposNormalizados = Array.isArray(gruposRes.data)
         ? gruposRes.data.map(g => ({ ...g, membros: normalizarMembros(g?.membros) }))
         : [];
       const notificacoesNormalizadas = Array.isArray(notifRes.data) ? notifRes.data : [];
-      const listasData = Array.isArray(listasRes.data) ? listasRes.data : [];
 
       setGrupos(gruposNormalizados);
       setNotificacoes(notificacoesNormalizadas);
-      setListas(listasData);
 
       if (listasData.length > 0 && !listaAtiva) {
         setListaAtiva(listasData[0].id);
@@ -210,8 +213,11 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
     ? grupos.filter(g => g.listaId === listaAtiva)
     : grupos;
 
+  const listaAtual = listas.find(l => l.id === listaAtiva);
+  const isStaffList = listaAtual?.tipo === 'staff';
+
   const listaNome = listaAtiva
-    ? (listas.find(l => l.id === listaAtiva)?.nome || 'Convidados')
+    ? (listaAtual?.nome || 'Convidados')
     : 'Todas as listas';
 
   const handleDragEndGrupos = ({ active, over }) => {
@@ -300,6 +306,46 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
     }
   };
 
+  const abrirCriarStaff = () => {
+    setEditando(null);
+    setStaffForm({ nome: '', servico: '', contato: '' });
+    setShowDialog(true);
+  };
+
+  const abrirEditarStaff = (grupo) => {
+    setEditando(grupo);
+    const m = normalizarMembros(grupo?.membros)[0] || {};
+    setStaffForm({ nome: grupo.nomeGrupo || '', servico: m.servico || '', contato: m.contato || '' });
+    setShowDialog(true);
+  };
+
+  const handleSalvarStaff = async () => {
+    if (!staffForm.nome.trim()) { toast.error('Informe o nome'); return; }
+    try {
+      const token = localStorage.getItem('adminToken');
+      const headers = { Authorization: `Bearer ${token}` };
+      const payload = {
+        nomeGrupo: staffForm.nome.trim(),
+        membros: [staffForm.nome.trim()],
+        servico: staffForm.servico.trim(),
+        contato: staffForm.contato.trim(),
+        listaId: listaAtiva
+      };
+      if (editando) {
+        await axios.put(`${API}/grupos/${editando.id}`, payload, { headers });
+        toast.success('Staff atualizado!');
+      } else {
+        await axios.post(`${API}/grupos`, payload, { headers });
+        toast.success('Staff adicionado!');
+      }
+      setShowDialog(false);
+      fetchAll();
+    } catch (error) {
+      if (error.response?.status === 401) { onUnauthorized?.(); return; }
+      toast.error('Erro ao salvar staff');
+    }
+  };
+
   const handleResolverNotif = async (id) => {
     try {
       const token = localStorage.getItem('adminToken');
@@ -314,7 +360,7 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
 
   const abrirCriarLista = () => {
     setEditandoLista(null);
-    setFormLista({ nome: '' });
+    setFormLista({ nome: '', tipo: 'grupos' });
     setShowListaDialog(true);
   };
 
@@ -322,7 +368,7 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
     const lista = listas.find(l => l.id === listaAtiva);
     if (!lista) return;
     setEditandoLista(lista);
-    setFormLista({ nome: lista.nome });
+    setFormLista({ nome: lista.nome, tipo: lista.tipo || 'grupos' });
     setShowListaDialog(true);
   };
 
@@ -331,7 +377,7 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
     try {
       const token = localStorage.getItem('adminToken');
       const headers = { Authorization: `Bearer ${token}` };
-      const payload = { nome: formLista.nome.trim() };
+      const payload = { nome: formLista.nome.trim(), tipo: formLista.tipo };
       if (editandoLista) {
         await axios.put(`${API}/listas/${editandoLista.id}`, payload, { headers });
         toast.success('Lista renomeada!');
@@ -363,18 +409,16 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
   };
 
   const handleExportPdf = async () => {
-    if (!listaAtiva) return;
     try {
       const token = localStorage.getItem('adminToken');
       const response = await axios.get(`${API}/grupos/exportar-pdf`, {
-        params: { listaId: listaAtiva },
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
       });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `convidados-${listaNome.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+      link.setAttribute('download', 'lista-de-convidados-completa.pdf');
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -480,17 +524,17 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
 
         {abaAtiva === 'grupos' && listaAtiva && (
           <button
-            onClick={abrirCriar}
+            onClick={isStaffList ? abrirCriarStaff : abrirCriar}
             className="bg-wedding-blue text-white hover:bg-wedding-blueDark rounded-lg px-5 py-3 font-serif transition-all shadow-lg inline-flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            Novo Grupo
+            {isStaffList ? 'Novo Staff' : 'Novo Grupo'}
           </button>
         )}
       </div>
 
       {/* Summary */}
-      {abaAtiva === 'grupos' && (
+      {abaAtiva === 'grupos' && !isStaffList && (
         <p className="text-slate-600 mb-4 text-sm">
           {totalConfirmados} confirmados de {totalNaLista} convidados em {gruposFiltrados.length} grupos
           {listaAtiva && (
@@ -498,11 +542,61 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
           )}
         </p>
       )}
+      {abaAtiva === 'grupos' && isStaffList && (
+        <p className="text-slate-600 mb-4 text-sm">
+          {gruposFiltrados.length} membro{gruposFiltrados.length !== 1 ? 's' : ''} na lista <span className="font-semibold text-wedding-blue">{listaNome}</span>
+        </p>
+      )}
 
       {/* Content */}
       {abaAtiva === 'grupos' && (
         <>
-          {!listaAtiva && gruposFiltrados.length > 0 ? (
+          {isStaffList ? (
+            // Staff view
+            gruposFiltrados.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+                <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-500 mb-4">Nenhum staff cadastrado</p>
+                <button onClick={abrirCriarStaff} className="bg-wedding-blue text-white rounded-lg px-5 py-2 font-serif">
+                  Adicionar primeiro staff
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50 border-b">
+                      <th className="text-left px-5 py-3.5 font-serif text-slate-600 text-sm">Nome</th>
+                      <th className="text-left px-5 py-3.5 font-serif text-slate-600 text-sm">Serviço</th>
+                      <th className="text-left px-5 py-3.5 font-serif text-slate-600 text-sm">Contato</th>
+                      <th className="text-right px-5 py-3.5 font-serif text-slate-600 text-sm">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {gruposFiltrados.map(grupo => {
+                      const m = normalizarMembros(grupo?.membros)[0] || {};
+                      return (
+                        <tr key={grupo.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
+                          <td className="px-5 py-3.5 font-sans text-slate-800">{grupo.nomeGrupo}</td>
+                          <td className="px-5 py-3.5 font-sans text-slate-600">{m.servico || '-'}</td>
+                          <td className="px-5 py-3.5 font-sans text-slate-600">{m.contato || '-'}</td>
+                          <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                            <button onClick={() => abrirEditarStaff(grupo)} className="p-1.5 text-wedding-blue hover:bg-wedding-blue/10 rounded-lg transition-colors">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeletar(grupo.id)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors ml-1">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : !listaAtiva && gruposFiltrados.length > 0 ? (
+            // Ver todos — agrupa por lista
             <div className="space-y-8">
               {listas.map(lista => {
                 const gruposDaLista = grupos.filter(g => g.listaId === lista.id);
@@ -512,18 +606,44 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
                     <h3 className="font-serif text-xl text-wedding-blue mb-3 border-b border-slate-200 pb-2">
                       {lista.nome}
                     </h3>
-                    <div className="space-y-4">
-                      {gruposDaLista.map(grupo => (
-                        <SortableGrupo
-                          key={grupo.id}
-                          grupo={grupo}
-                          expandido={expandido}
-                          onToggle={(id) => setExpandido(expandido === id ? null : id)}
-                          onEditar={abrirEditar}
-                          onDeletar={handleDeletar}
-                        />
-                      ))}
-                    </div>
+                    {lista.tipo === 'staff' ? (
+                      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="bg-slate-50 border-b">
+                              <th className="text-left px-5 py-3 font-serif text-slate-600 text-sm">Nome</th>
+                              <th className="text-left px-5 py-3 font-serif text-slate-600 text-sm">Serviço</th>
+                              <th className="text-left px-5 py-3 font-serif text-slate-600 text-sm">Contato</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {gruposDaLista.map(grupo => {
+                              const m = normalizarMembros(grupo?.membros)[0] || {};
+                              return (
+                                <tr key={grupo.id} className="border-b last:border-0">
+                                  <td className="px-5 py-3 font-sans text-slate-800">{grupo.nomeGrupo}</td>
+                                  <td className="px-5 py-3 font-sans text-slate-600">{m.servico || '-'}</td>
+                                  <td className="px-5 py-3 font-sans text-slate-600">{m.contato || '-'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {gruposDaLista.map(grupo => (
+                          <SortableGrupo
+                            key={grupo.id}
+                            grupo={grupo}
+                            expandido={expandido}
+                            onToggle={(id) => setExpandido(expandido === id ? null : id)}
+                            onEditar={abrirEditar}
+                            onDeletar={handleDeletar}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -592,64 +712,107 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
         </div>
       )}
 
-      {/* Dialog Group */}
+      {/* Dialog Group / Staff */}
       <Dialog open={showDialog} onOpenChange={(open) => { setShowDialog(open); if (!open) setEditando(null); }}>
         <DialogContent className="bg-white max-w-md max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="font-serif text-2xl text-wedding-blue">
-              {editando ? 'Editar Grupo' : 'Novo Grupo Familiar'}
+              {isStaffList
+                ? (editando ? 'Editar Staff' : 'Novo Staff')
+                : (editando ? 'Editar Grupo' : 'Novo Grupo Familiar')}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 mt-2 overflow-hidden">
-            <div>
-              <label className="block text-sm font-semibold text-slate-600 mb-1">Nome do Grupo</label>
-              <input
-                type="text"
-                value={form.nomeGrupo}
-                onChange={(e) => setForm(prev => ({ ...prev, nomeGrupo: e.target.value }))}
-                placeholder="Ex: Família Silva"
-                className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2.5 focus:outline-none"
-              />
-            </div>
-
-            <div className="flex flex-col overflow-hidden">
-              <label className="block text-sm font-semibold text-slate-600 mb-2">
-                Membros <span className="text-slate-400 font-normal">(segure e arraste para reordenar)</span>
-              </label>
-              <div className="overflow-y-auto max-h-64 pr-1">
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndMembros}>
-                  <SortableContext items={membroIds} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-2">
-                      {form.membros.map((m, i) => (
-                        <SortableMembro
-                          key={membroIds[i]}
-                          id={membroIds[i]}
-                          value={m}
-                          index={i}
-                          onChange={updateMembro}
-                          onRemove={removeMembroField}
-                          canRemove={form.membros.length > 1}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
+          {isStaffList ? (
+            <div className="flex flex-col gap-4 mt-2">
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Nome</label>
+                <input
+                  type="text"
+                  value={staffForm.nome}
+                  onChange={(e) => setStaffForm(prev => ({ ...prev, nome: e.target.value }))}
+                  placeholder="Ex: Leandro"
+                  className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2.5 focus:outline-none"
+                />
               </div>
-              <button
-                onClick={addMembroField}
-                className="mt-2 text-sm text-wedding-blue hover:underline flex items-center gap-1"
-              >
-                <Plus className="w-4 h-4" /> Adicionar membro
-              </button>
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Serviço</label>
+                <input
+                  type="text"
+                  value={staffForm.servico}
+                  onChange={(e) => setStaffForm(prev => ({ ...prev, servico: e.target.value }))}
+                  placeholder="Ex: Músico"
+                  className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2.5 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Contato</label>
+                <input
+                  type="text"
+                  value={staffForm.contato}
+                  onChange={(e) => setStaffForm(prev => ({ ...prev, contato: e.target.value }))}
+                  placeholder="Ex: 11978559876547"
+                  className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2.5 focus:outline-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button onClick={() => setShowDialog(false)} variant="outline" className="flex-1">Cancelar</Button>
+                <Button onClick={handleSalvarStaff} className="flex-1 bg-wedding-blue hover:bg-wedding-blueDark">
+                  {editando ? 'Salvar' : 'Adicionar'}
+                </Button>
+              </div>
             </div>
+          ) : (
+            <div className="flex flex-col gap-4 mt-2 overflow-hidden">
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Nome do Grupo</label>
+                <input
+                  type="text"
+                  value={form.nomeGrupo}
+                  onChange={(e) => setForm(prev => ({ ...prev, nomeGrupo: e.target.value }))}
+                  placeholder="Ex: Família Silva"
+                  className="w-full border border-slate-300 focus:border-wedding-blue rounded-lg px-4 py-2.5 focus:outline-none"
+                />
+              </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button onClick={() => setShowDialog(false)} variant="outline" className="flex-1">Cancelar</Button>
-              <Button onClick={handleSalvar} className="flex-1 bg-wedding-blue hover:bg-wedding-blueDark">
-                {editando ? 'Salvar' : 'Criar Grupo'}
-              </Button>
+              <div className="flex flex-col overflow-hidden">
+                <label className="block text-sm font-semibold text-slate-600 mb-2">
+                  Membros <span className="text-slate-400 font-normal">(segure e arraste para reordenar)</span>
+                </label>
+                <div className="overflow-y-auto max-h-64 pr-1">
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndMembros}>
+                    <SortableContext items={membroIds} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2">
+                        {form.membros.map((m, i) => (
+                          <SortableMembro
+                            key={membroIds[i]}
+                            id={membroIds[i]}
+                            value={m}
+                            index={i}
+                            onChange={updateMembro}
+                            onRemove={removeMembroField}
+                            canRemove={form.membros.length > 1}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                </div>
+                <button
+                  onClick={addMembroField}
+                  className="mt-2 text-sm text-wedding-blue hover:underline flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" /> Adicionar membro
+                </button>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button onClick={() => setShowDialog(false)} variant="outline" className="flex-1">Cancelar</Button>
+                <Button onClick={handleSalvar} className="flex-1 bg-wedding-blue hover:bg-wedding-blueDark">
+                  {editando ? 'Salvar' : 'Criar Grupo'}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -673,6 +836,33 @@ export const GuestsList = ({ onNotifCount, onUnauthorized }) => {
                 autoFocus
               />
             </div>
+            {!editandoLista && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-2">Tipo da Lista</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setFormLista(prev => ({ ...prev, tipo: 'grupos' }))}
+                    className={`flex-1 px-4 py-2.5 rounded-lg font-serif text-sm transition-all border ${
+                      formLista.tipo === 'grupos'
+                        ? 'bg-wedding-blue text-white border-wedding-blue'
+                        : 'bg-white text-slate-600 border-slate-300 hover:border-wedding-blue'
+                    }`}
+                  >
+                    Grupos
+                  </button>
+                  <button
+                    onClick={() => setFormLista(prev => ({ ...prev, tipo: 'staff' }))}
+                    className={`flex-1 px-4 py-2.5 rounded-lg font-serif text-sm transition-all border ${
+                      formLista.tipo === 'staff'
+                        ? 'bg-wedding-blue text-white border-wedding-blue'
+                        : 'bg-white text-slate-600 border-slate-300 hover:border-wedding-blue'
+                    }`}
+                  >
+                    Staff
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="flex gap-3 pt-2">
               <Button onClick={() => setShowListaDialog(false)} variant="outline" className="flex-1">Cancelar</Button>
               <Button onClick={handleSalvarLista} className="flex-1 bg-wedding-blue hover:bg-wedding-blueDark">

@@ -89,19 +89,25 @@ async def serve_upload(filename: str):
 class MembroGrupo(BaseModel):
     nome: str
     confirmado: bool = False
+    servico: Optional[str] = None
+    contato: Optional[str] = None
 
 class GrupoFamiliarCreate(BaseModel):
     nomeGrupo: str
     membros: List[str]  # só os nomes
     listaId: Optional[str] = None
+    servico: Optional[str] = None
+    contato: Optional[str] = None
 
 class ListaCreate(BaseModel):
     nome: str
+    tipo: str = "grupos"
 
 class Lista(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     nome: str
+    tipo: str = "grupos"
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class GrupoFamiliar(BaseModel):
@@ -250,19 +256,28 @@ async def admin_login(login_data: AdminLogin):
 async def get_listas(admin: dict = Depends(verify_admin_token)):
     listas = await db.listas.find({}, {"_id": 0}).to_list(1000)
     if not listas:
-        lista_padrao = Lista(nome="Convidados")
-        doc = lista_padrao.model_dump()
-        doc['createdAt'] = doc['createdAt'].isoformat()
-        await db.listas.insert_one(doc)
+        lista_convidados = Lista(nome="Convidados", tipo="grupos")
+        lista_staff = Lista(nome="Staff", tipo="staff")
+        for lista in [lista_convidados, lista_staff]:
+            doc = lista.model_dump()
+            doc['createdAt'] = doc['createdAt'].isoformat()
+            await db.listas.insert_one(doc)
         await db.grupos.update_many(
             {"listaId": {"$exists": False}},
-            {"$set": {"listaId": lista_padrao.id}}
+            {"$set": {"listaId": lista_convidados.id}}
         )
         await db.grupos.update_many(
             {"listaId": None},
-            {"$set": {"listaId": lista_padrao.id}}
+            {"$set": {"listaId": lista_convidados.id}}
         )
-        listas = [lista_padrao]
+        return [lista_convidados, lista_staff]
+    # Garantir que lista "Staff" existe mesmo em instalações existentes
+    if not any(l.get("tipo") == "staff" for l in listas):
+        lista_staff = Lista(nome="Staff", tipo="staff")
+        doc = lista_staff.model_dump()
+        doc['createdAt'] = doc['createdAt'].isoformat()
+        await db.listas.insert_one(doc)
+        listas = await db.listas.find({}, {"_id": 0}).to_list(1000)
     return listas
 
 @api_router.post("/listas", response_model=Lista)
@@ -307,7 +322,7 @@ async def get_grupos(listaId: Optional[str] = None, admin: dict = Depends(verify
 
 @api_router.post("/grupos", response_model=GrupoFamiliar)
 async def create_grupo(grupo_input: GrupoFamiliarCreate, admin: dict = Depends(verify_admin_token)):
-    membros = [MembroGrupo(nome=n) for n in grupo_input.membros]
+    membros = [MembroGrupo(nome=n, servico=grupo_input.servico, contato=grupo_input.contato) for n in grupo_input.membros]
     grupo = GrupoFamiliar(nomeGrupo=grupo_input.nomeGrupo, membros=membros, listaId=grupo_input.listaId)
     doc = grupo.model_dump()
     doc['createdAt'] = doc['createdAt'].isoformat()
@@ -319,10 +334,15 @@ async def update_grupo(grupo_id: str, grupo_input: GrupoFamiliarCreate, admin: d
     grupo = await db.grupos.find_one({"id": grupo_id}, {"_id": 0})
     if not grupo:
         raise HTTPException(status_code=404, detail="Grupo não encontrado")
-    # Preserva confirmações já existentes ao editar
-    confirmados = {m['nome']: m['confirmado'] for m in grupo.get('membros', [])}
+    confirmados = {}
+    for m in grupo.get('membros', []):
+        confirmados[m['nome']] = {
+            'confirmado': m.get('confirmado', False),
+            'servico': grupo_input.servico if grupo_input.servico is not None else m.get('servico'),
+            'contato': grupo_input.contato if grupo_input.contato is not None else m.get('contato')
+        }
     novos_membros = [
-        {"nome": n, "confirmado": confirmados.get(n, False)}
+        {"nome": n, "confirmado": confirmados.get(n, {}).get('confirmado', False), "servico": confirmados.get(n, {}).get('servico'), "contato": confirmados.get(n, {}).get('contato')}
         for n in grupo_input.membros
     ]
     await db.grupos.update_one(
@@ -342,36 +362,64 @@ async def delete_grupo(grupo_id: str, admin: dict = Depends(verify_admin_token))
     return {"message": "Grupo deletado com sucesso"}
 
 @api_router.get("/grupos/exportar-pdf")
-async def exportar_grupos_pdf(listaId: Optional[str] = None, admin: dict = Depends(verify_admin_token)):
-    query = {}
-    if listaId:
-        query["listaId"] = listaId
-    grupos = await db.grupos.find(query, {"_id": 0}).to_list(1000)
+async def exportar_grupos_pdf(admin: dict = Depends(verify_admin_token)):
+    grupos = await db.grupos.find({}, {"_id": 0}).to_list(1000)
+    listas = await db.listas.find({}, {"_id": 0}).to_list(1000)
 
-    nome_lista = "Convidados"
-    if listaId:
-        lista = await db.listas.find_one({"id": listaId}, {"_id": 0})
-        if lista:
-            nome_lista = lista.get("nome", "Convidados")
+    listas_map = {l["id"]: l for l in listas}
 
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
     pdf.cell(0, 10, "Lista de Convidados", new_x="LMARGIN", new_y="NEXT", align="C")
-    pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 8, nome_lista, new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.ln(8)
 
+    grupos_por_lista = {}
+    for g in grupos:
+        lid = g.get("listaId", "sem_lista")
+        if lid not in grupos_por_lista:
+            grupos_por_lista[lid] = []
+        grupos_por_lista[lid].append(g)
+
     total = 0
-    for grupo in grupos:
-        pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 8, grupo.get("nomeGrupo", "Sem nome"), new_x="LMARGIN", new_y="NEXT")
-        pdf.set_font("Helvetica", "", 10)
-        for membro in grupo.get("membros", []):
-            nome = membro.get("nome", membro) if isinstance(membro, dict) else membro
-            pdf.cell(0, 7, f"  - {nome}", new_x="LMARGIN", new_y="NEXT")
-            total += 1
-        pdf.ln(3)
+    for lista in listas:
+        lid = lista["id"]
+        nome_lista = lista.get("nome", "Sem nome")
+        tipo = lista.get("tipo", "grupos")
+        grupos_da_lista = grupos_por_lista.get(lid, [])
+
+        if not grupos_da_lista:
+            continue
+
+        pdf.set_font("Helvetica", "B", 14)
+        pdf.cell(0, 10, nome_lista, new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(2)
+
+        if tipo == "staff":
+            pdf.set_font("Helvetica", "", 10)
+            for g in grupos_da_lista:
+                m = g.get("membros", [{}])[0]
+                nome = m.get("nome", g.get("nomeGrupo", ""))
+                servico = m.get("servico", "")
+                contato = m.get("contato", "")
+                linha = f"  {nome}"
+                if servico:
+                    linha += f" | {servico}"
+                if contato:
+                    linha += f" | {contato}"
+                pdf.cell(0, 7, linha, new_x="LMARGIN", new_y="NEXT")
+                total += 1
+        else:
+            for g in grupos_da_lista:
+                pdf.set_font("Helvetica", "B", 11)
+                pdf.cell(0, 7, g.get("nomeGrupo", "Sem nome"), new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font("Helvetica", "", 10)
+                for m in g.get("membros", []):
+                    nome = m.get("nome", "")
+                    pdf.cell(0, 6, f"  - {nome}", new_x="LMARGIN", new_y="NEXT")
+                    total += 1
+                pdf.ln(2)
+        pdf.ln(4)
 
     pdf.ln(5)
     pdf.set_font("Helvetica", "I", 10)
@@ -381,7 +429,7 @@ async def exportar_grupos_pdf(listaId: Optional[str] = None, admin: dict = Depen
     pdf.output(buffer)
     buffer.seek(0)
 
-    filename = f"convidados-{nome_lista.lower().replace(' ', '-')}.pdf"
+    filename = "lista-de-convidados-completa.pdf"
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
