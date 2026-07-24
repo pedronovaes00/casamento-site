@@ -5,30 +5,15 @@ import './App.css';
 
 import PaperOverlay from './components/PaperOverlay';
 import InvitationLanding from './components/InvitationLanding';
-import RSVPForm from './components/RSVPForm';
-import GiftsAndVaquinhas from './components/GiftsAndVaquinhas';
 import AdminLogin from './components/admin/AdminLogin';
 import AdminDashboard from './components/admin/AdminDashboard';
 
 const PublicFlow = () => {
-  const [currentStep, setCurrentStep] = useState('rsvp');
-  const [confirmedGuest, setConfirmedGuest] = useState(null);
-
-  const handleRSVPComplete = (guest) => {
-    setConfirmedGuest(guest);
-    setCurrentStep('confirmation');
-  };
-
   return (
     <>
       <PaperOverlay />
       <div className="relative z-10">
-        {currentStep === 'rsvp' && (
-          <RSVPForm onComplete={handleRSVPComplete} />
-        )}
-        {currentStep === 'confirmation' && confirmedGuest && (
-          <InvitationLanding guest={confirmedGuest} />
-        )}
+        <InvitationLanding />
       </div>
     </>
   );

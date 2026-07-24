@@ -7,16 +7,9 @@ import GiftsAndVaquinhas from './GiftsAndVaquinhas';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-export const InvitationLanding = ({ guest }) => {
+export const InvitationLanding = ({ guest } = {}) => {
   const [weddingInfo, setWeddingInfo] = useState(null);
   const giftsRef = useRef(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      giftsRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     const fetchWeddingInfo = async () => {
@@ -33,7 +26,7 @@ export const InvitationLanding = ({ guest }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       giftsRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 2000);
+    }, 2500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -41,19 +34,9 @@ export const InvitationLanding = ({ guest }) => {
     giftsRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    const scrollTimer = setTimeout(() => {
-      giftsRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 2000);
-
-    return () => clearTimeout(scrollTimer);
-  }, []);
-
-  const firstName = guest.name.split(' ')[0];
-
   return (
     <div className="relative">
-      {/* Seção de confirmação */}
+      {/* Seção do convite */}
       <div className="min-h-screen relative overflow-hidden">
         <div className="relative z-10 max-w-4xl mx-auto px-6 py-8 md:py-24">
           <motion.div
@@ -73,21 +56,21 @@ export const InvitationLanding = ({ guest }) => {
             </motion.div>
 
             <h1 className="font-script text-4xl md:text-7xl text-slate-800 mb-6 drop-shadow-md">
-              Presença Confirmada!
+              Bem-vindos ao nosso casamento!
             </h1>
 
             <div className="w-24 h-0.5 bg-wedding-gold mx-auto mb-6"></div>
 
             <p className="font-serif text-2xl md:text-3xl text-slate-700 mb-4 font-semibold">
-              {firstName}, que alegria ter você com a gente! 🎉
+              Queridos convidados,
             </p>
 
-            <p className="font-sans text-lg text-slate-600 max-w-2xl mx-auto">
-              Estamos muito felizes em compartilhar este momento especial com você
+            <p className="font-sans text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
+              É com imensa alegria que convidamos vocês para celebrar este momento tão especial em nossas vidas. Preparamos tudo com muito carinho para recebê-los.
             </p>
           </motion.div>
 
-{/* Botão scroll para presentes */}
+          {/* Botão scroll para presentes */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -142,26 +125,12 @@ export const InvitationLanding = ({ guest }) => {
               )}
             </div>
           </motion.div>
-
-          {/* Confirmados */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            className="text-center mb-8"
-          >
-            <p className="text-sm text-slate-500">
-              Confirmado: <span className="font-semibold text-wedding-black">
-                {guest.confirmados ? guest.confirmados.join(', ') : guest.name}
-              </span>
-            </p>
-          </motion.div>
         </div>
       </div>
 
       {/* Seção de presentes e vaquinhas */}
       <div ref={giftsRef}>
-        <GiftsAndVaquinhas guest={guest} />
+        <GiftsAndVaquinhas />
       </div>
     </div>
   );
